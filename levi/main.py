@@ -24,16 +24,14 @@ except Exception:
     # Older Python versions or unusual environments may not support reconfigure
     pass
 
-from core.loop import AssistantLoop
 from utils.logger import logger
+from gui.app import launch_gui
 
 
 def main():
-    """Main entry point"""
+    """Main entry point - launches PyQt6 GUI"""
     try:
-        # Create and start the assistant loop
-        assistant = AssistantLoop()
-        assistant.start()
+        launch_gui()
 
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
