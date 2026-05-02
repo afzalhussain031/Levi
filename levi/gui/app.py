@@ -16,6 +16,7 @@ from PyQt6.QtGui import QFont, QColor, QIcon
 
 from audio.speech import SpeechRecognizer
 from audio.tts import VoiceOutput
+from core.brain import get_ollama_client
 from utils.config import SYSTEM_CONFIG
 import time
 from utils.logger import logger
@@ -38,7 +39,7 @@ class AssistantWorkerThread(threading.Thread):
     """
     Background worker thread that manages speech recognition and response generation
     Emits signals via SignalEmitter for UI updates
-    Does NOT use AssistantLoop; manages components directly
+    Integrates with Ollama for AI-powered responses
     """
 
     def __init__(self, signal_emitter):
@@ -49,6 +50,18 @@ class AssistantWorkerThread(threading.Thread):
         # Create components directly
         self.speech_recognizer = SpeechRecognizer()
         self.voice_output = VoiceOutput()
+        
+        # Initialize AI brain (Ollama) if enabled
+        self.ai_enabled = SYSTEM_CONFIG.get("use_ai", True)
+        self.ollama_client = None
+        if self.ai_enabled:
+            try:
+                self.ollama_client = get_ollama_client()
+                logger.info("✓ AI brain (Ollama) initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize Ollama: {e}")
+                logger.warning("Falling back to echo mode")
+                self.ai_enabled = False
 
     def run(self):
         """Main assistant loop for GUI"""
@@ -59,7 +72,7 @@ class AssistantWorkerThread(threading.Thread):
             self.speech_recognizer.start_listening()
             
             # Play greeting
-            greeting = "Hello! I'm LEVI, your virtual assistant. I'm ready to listen."
+            greeting = "Hello! I'm LEVI, your voice assistant. I'm ready to listen."
             if SYSTEM_CONFIG["voice_enabled"]:
                 self.voice_output.speak_async(greeting)
 
@@ -72,9 +85,14 @@ class AssistantWorkerThread(threading.Thread):
                         # Emit recognized text to UI
                         self.emitter.text_received.emit("recognized", text)
                         
-                        # Generate response (simple echo for now)
-                        timestamp = time.strftime("%H:%M:%S")
-                        response = f"You said: {text}. Processed at {timestamp}."
+                        # Generate response (AI or echo)
+                        if self.ai_enabled and self.ollama_client:
+                            response = self.ollama_client.generate_response(text)
+                        else:
+                            # Fallback: simple echo
+                            import time
+                            timestamp = time.strftime("%H:%M:%S")
+                            response = f"You said: {text}. Processed at {timestamp}."
                         
                         # Emit response to UI
                         self.emitter.response_generated.emit(response)

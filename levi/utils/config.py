@@ -39,11 +39,12 @@ TTS_CONFIG = {
 
 # ==================== LLM CONFIGURATION (Ollama) ====================
 LLM_CONFIG = {
-    "base_url": "http://localhost:11434",  # Ollama default endpoint
-    "model": "mistral",             # Model name (mistral, neural-chat, llama2, etc.)
-    "temperature": 0.7,
+    "base_url": "http://localhost:11434",  # Ollama default endpoint (ensure `ollama serve` is running)
+    "model": "llama3.1",              # Model name (llama2, llama3, mistral, neural-chat, etc.)
+    "temperature": 0.7,            # 0.0-1.0 (lower = more focused, higher = more creative)
     "top_p": 0.9,
     "max_tokens": 500,
+    "max_messages": 10,            # Conversation history size for context
 }
 
 # ==================== MEMORY CONFIGURATION ====================
@@ -65,6 +66,7 @@ SYSTEM_CONFIG = {
     "debug_mode": True,             # Verbose logging
     "voice_enabled": True,          # Enable TTS output
     "continuous_listening": True,   # Keep listening in background
+    "use_ai": True,                 # Use Ollama AI for responses (False = echo mode)
 }
 
 # ==================== PATHS ====================
