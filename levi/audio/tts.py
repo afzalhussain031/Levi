@@ -9,6 +9,8 @@ from pathlib import Path
 import tempfile
 import subprocess
 import time
+import shutil
+import logging
 
 from utils.logger import logger
 from utils.config import TTS_CONFIG, PATHS
@@ -69,29 +71,55 @@ class VoiceOutput:
         """Async TTS function using edge-tts"""
         try:
             from edge_tts import Communicate
-
             # Create temporary file for audio
             with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp:
                 tmp_path = tmp.name
 
             # Generate speech using edge-tts
             communicate = Communicate(text, self.voice, rate=self._format_rate())
-
             await communicate.save(tmp_path)
 
-            # Play audio using default player
-            if Path(tmp_path).exists():
-                subprocess.Popen(
-                    [f"{tmp_path}"],
-                    shell=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
-                )
-                # Wait for speech to complete (rough estimate)
-                time.sleep(len(text) / 150 + 1)
+            # Playback strategy: prefer ffplay (no GUI), fallback to playsound
+            try:
+                ffplay_path = shutil.which("ffplay") or shutil.which("ffplay.exe")
+                if ffplay_path:
+                    self.logger.debug(f"Playing TTS via ffplay: {ffplay_path}")
+                    proc = subprocess.Popen([
+                        ffplay_path,
+                        "-nodisp",
+                        "-autoexit",
+                        "-loglevel",
+                        "quiet",
+                        tmp_path
+                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    # Wait for playback to complete
+                    proc.wait()
+                else:
+                    # Try playsound as a fallback
+                    try:
+                        from playsound import playsound
+                        self.logger.debug("Playing TTS via playsound fallback")
+                        # run in thread to avoid blocking the asyncio loop
+                        await asyncio.to_thread(playsound, tmp_path)
+                    except Exception as e_inner:
+                        self.logger.error(f"playsound unavailable or failed: {e_inner}")
+                        # Last resort: attempt to play via ffplay-like behavior (no GUI) failed
+                        # Fall back to platform default open (least desirable)
+                        try:
+                            if hasattr(subprocess, 'STARTUPINFO') and shutil.which('cmd'):
+                                # On Windows, use startfile-like behavior without shell=True
+                                subprocess.Popen([tmp_path], shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            else:
+                                subprocess.Popen([tmp_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        except Exception as e_fallback:
+                            self.logger.error(f"Failed to play TTS audio: {e_fallback}")
 
-                # Clean up
-                Path(tmp_path).unlink(missing_ok=True)
+            finally:
+                # Ensure temp file is removed
+                try:
+                    Path(tmp_path).unlink(missing_ok=True)
+                except Exception as e_rm:
+                    self.logger.debug(f"Failed to remove temp TTS file: {e_rm}")
 
         except ImportError:
             self.logger.error("edge-tts not installed. Install with: pip install edge-tts")
