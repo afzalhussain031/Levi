@@ -7,6 +7,7 @@ Non-blocking architecture for responsive interactions
 import time
 from audio.speech import SpeechRecognizer
 from audio.tts import VoiceOutput
+from core.agent import LeviAgent
 from utils.logger import logger
 from utils.config import SYSTEM_CONFIG
 
@@ -27,6 +28,7 @@ class AssistantLoop:
         # Initialize components
         self.speech_recognizer = SpeechRecognizer()
         self.voice_output = VoiceOutput()
+        self.agent = LeviAgent()
 
         # State
         self.running = False
@@ -76,23 +78,13 @@ class AssistantLoop:
                 time.sleep(1)
 
     def _process_input(self, user_input):
-        """
-        PHASE 1: Simple echo response
-        User input → Text output → Voice output
-        
-        Later phases will add:
-        - LLM reasoning
-        - Tool selection
-        - Action execution
-        """
+        """Process user input through the LangChain agent."""
         self.processing_input = True
 
         try:
             self.logger.info(f"📝 Processing: {user_input}")
 
-            # PHASE 1: Simple echo with timestamp
-            timestamp = time.strftime("%H:%M:%S")
-            response = f"You said: {user_input}. Processed at {timestamp}."
+            response = self.agent.run(user_input)
 
             self.logger.info(f"💬 Response: {response}")
 

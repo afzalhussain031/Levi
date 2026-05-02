@@ -1,185 +1,259 @@
 """
-LEVI AI Brain Module
-Integrates local Ollama LLM for intelligent responses
-Maintains conversation history and context
+LEVI Brain Module
+Handles conversation memory, rule-based intent detection, and Ollama-based AI decisions.
 """
 
-import requests
 import json
+import re
 from collections import deque
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+import requests
+
+from utils.config import LLM_CONFIG, SYSTEM_CONFIG
 from utils.logger import logger
-from utils.config import LLM_CONFIG
+
+
+@dataclass
+class IntentDecision:
+    """Structured decision returned by the brain."""
+    kind: str  # "action" or "response"
+    response: str = ""
+    action: Optional[str] = None
+    arguments: Dict[str, Any] = field(default_factory=dict)
+    requires_confirmation: bool = False
+    source: str = "rule"
+    raw: str = ""
 
 
 class ConversationMemory:
-    """
-    Simple conversation memory manager
-    Stores recent user + assistant messages for context
-    """
+    """Simple bounded conversation memory."""
 
-    def __init__(self, max_messages=10):
-        """Initialize memory with max capacity"""
+    def __init__(self, max_messages: int = 10):
         self.max_messages = max_messages
         self.history = deque(maxlen=max_messages)
 
     def add_message(self, role: str, content: str):
-        """Add a message to history (role: 'user' or 'assistant')"""
         self.history.append({"role": role, "content": content})
 
     def get_history(self):
-        """Get conversation history as list"""
         return list(self.history)
 
     def get_context(self):
-        """Get conversation context as formatted string"""
         if not self.history:
             return ""
-        lines = [f"{msg['role'].upper()}: {msg['content']}" for msg in self.history]
-        return "\n".join(lines)
+        return "\n".join(f"{msg['role'].upper()}: {msg['content']}" for msg in self.history)
 
     def clear(self):
-        """Clear conversation history"""
         self.history.clear()
 
 
 class OllamaClient:
-    """
-    Ollama LLM client
-    Sends prompts to local Ollama instance and retrieves responses
-    """
+    """Low-level Ollama HTTP client."""
 
-    def __init__(self, base_url=None, model=None):
-        """
-        Initialize Ollama client
-        
-        Args:
-            base_url: Ollama API endpoint (default from config)
-            model: Model name (default from config)
-        """
+    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
         self.base_url = base_url or LLM_CONFIG["base_url"]
         self.model = model or LLM_CONFIG["model"]
         self.logger = logger
-        
-        # Conversation memory
-        self.memory = ConversationMemory(max_messages=LLM_CONFIG.get("max_messages", 10))
-        
-        # Verify connection on init
         self._verify_connection()
 
     def _verify_connection(self):
-        """Verify Ollama is running and accessible"""
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
             if response.status_code == 200:
                 self.logger.info(f"✓ Ollama connected at {self.base_url}")
                 models = response.json().get("models", [])
                 self.logger.debug(f"Available models: {[m.get('name') for m in models]}")
-            else:
-                self.logger.warning(f"Ollama returned {response.status_code}")
-        except requests.exceptions.ConnectionError:
+                return
+            raise RuntimeError(f"Ollama returned {response.status_code}")
+        except requests.exceptions.ConnectionError as e:
             self.logger.error(f"Cannot connect to Ollama at {self.base_url}. Is it running? (ollama serve)")
-            raise RuntimeError(f"Ollama not accessible at {self.base_url}")
+            raise RuntimeError(f"Ollama not accessible at {self.base_url}") from e
+
+    def chat(self, messages: List[Dict[str, str]], json_mode: bool = False) -> str:
+        """Send chat messages to Ollama and return assistant content."""
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "temperature": LLM_CONFIG.get("temperature", 0.7),
+                "top_p": LLM_CONFIG.get("top_p", 0.9),
+                "num_predict": LLM_CONFIG.get("max_tokens", 500),
+            },
+        }
+        if json_mode:
+            payload["format"] = "json"
+
+        response = requests.post(f"{self.base_url}/api/chat", json=payload, timeout=30)
+        if response.status_code != 200:
+            raise RuntimeError(f"Ollama error {response.status_code}: {response.text}")
+
+        result = response.json()
+        return result.get("message", {}).get("content", "").strip()
+
+
+class LeviBrain:
+    """High-level brain that decides between action and response."""
+
+    def __init__(self):
+        self.logger = logger
+        self.ai_enabled = SYSTEM_CONFIG.get("use_ai", True)
+        self.memory = ConversationMemory(max_messages=LLM_CONFIG.get("max_messages", 10))
+        self.client: Optional[OllamaClient] = None
+
+        if self.ai_enabled:
+            try:
+                self.client = OllamaClient()
+            except Exception as e:
+                self.logger.error(f"AI brain unavailable: {e}")
+                self.logger.warning("LEVI will fall back to rule-based responses.")
+                self.ai_enabled = False
+
+    def remember_turn(self, user_input: str, assistant_response: str):
+        self.memory.add_message("user", user_input)
+        self.memory.add_message("assistant", assistant_response)
+
+    def _normalize(self, text: str) -> str:
+        return re.sub(r"\s+", " ", text.strip().lower())
+
+    def detect_rule_based_intent(self, user_input: str) -> Optional[IntentDecision]:
+        text = self._normalize(user_input)
+
+        if any(phrase in text for phrase in ["shutdown pc", "shut down", "power off", "turn off the computer", "turn off the pc"]):
+            return IntentDecision(
+                kind="action",
+                action="shutdown_pc",
+                requires_confirmation=True,
+                response="I need confirmation before shutting down the PC.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["open chrome", "launch chrome", "start chrome", "open browser", "launch browser"]):
+            return IntentDecision(
+                kind="action",
+                action="open_chrome",
+                response="Opening Chrome.",
+                source="rule",
+            )
+
+        if "youtube" in text and any(phrase in text for phrase in ["open", "launch", "start", "play", "go to"]):
+            query = None
+            match = re.search(r"(?:search|find|play) (.+?) on youtube", text)
+            if match:
+                query = match.group(1).strip()
+            return IntentDecision(
+                kind="action",
+                action="open_youtube",
+                arguments={"query": query} if query else {},
+                response="Opening YouTube.",
+                source="rule",
+            )
+
+        return None
+
+    def _extract_json(self, content: str) -> Dict[str, Any]:
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            pass
+
+        start = content.find("{")
+        end = content.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            try:
+                return json.loads(content[start : end + 1])
+            except json.JSONDecodeError:
+                pass
+
+        return {}
+
+    def _parse_json_decision(self, content: str) -> IntentDecision:
+        payload = self._extract_json(content)
+
+        kind = payload.get("kind") or payload.get("type") or "response"
+        action = payload.get("action")
+        arguments = payload.get("arguments") or {}
+        response = payload.get("response") or ""
+        requires_confirmation = bool(payload.get("requires_confirmation", False))
+
+        if kind not in {"action", "response"}:
+            kind = "response"
+
+        return IntentDecision(
+            kind=kind,
+            action=action,
+            arguments=arguments if isinstance(arguments, dict) else {},
+            response=response,
+            requires_confirmation=requires_confirmation,
+            source="ai",
+            raw=content,
+        )
+
+    def decide_intent(self, user_input: str, available_actions: List[str]) -> IntentDecision:
+        """Decide whether the user wants an action or a normal response."""
+        rule_decision = self.detect_rule_based_intent(user_input)
+        if rule_decision:
+            return rule_decision
+
+        if not self.ai_enabled or self.client is None:
+            return IntentDecision(kind="response", response=self.generate_response(user_input), source="fallback")
+
+        system_prompt = (
+            "You are LEVI's decision engine. Return ONLY valid JSON. "
+            "Choose either an action or a natural language response. "
+            "If the user requests a supported tool, return kind=\"action\" and set action to one of the available actions. "
+            "If the action is dangerous, set requires_confirmation=true. "
+            "Otherwise return kind=\"response\". "
+            "Use this JSON shape: {\"kind\":\"action|response\",\"action\":null,\"arguments\":{},\"response\":\"...\",\"requires_confirmation\":false}."
+        )
+
+        context = self.memory.get_context()
+        user_message = (
+            f"Available actions: {', '.join(available_actions)}\n\n"
+            f"Conversation context:\n{context if context else 'None'}\n\n"
+            f"User: {user_input}"
+        )
+
+        try:
+            content = self.client.chat(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                json_mode=True,
+            )
+            decision = self._parse_json_decision(content)
+
+            if decision.kind == "action" and decision.action not in available_actions:
+                self.logger.warning(f"AI returned unsupported action: {decision.action}")
+                return IntentDecision(kind="response", response=self.generate_response(user_input), source="fallback")
+
+            return decision
+
         except Exception as e:
-            self.logger.error(f"Error verifying Ollama connection: {e}")
-            raise
+            self.logger.error(f"AI decision failed: {e}")
+            return IntentDecision(kind="response", response=self.generate_response(user_input), source="fallback")
 
     def generate_response(self, user_input: str) -> str:
-        """
-        Generate AI response to user input
-        
-        Args:
-            user_input: User's text input
-            
-        Returns:
-            AI-generated response text
-        """
+        """Generate a normal conversational AI response."""
+        if not self.ai_enabled or self.client is None:
+            return f"I heard you say: {user_input}"
+
+        system_prompt = (
+            "You are LEVI, a helpful voice assistant. "
+            "Be concise, friendly, and natural. Keep replies short enough for TTS."
+        )
+
+        messages = [{"role": "system", "content": system_prompt}]
+        context = self.memory.get_context()
+        if context:
+            messages.append({"role": "system", "content": f"Conversation context:\n{context}"})
+        messages.append({"role": "user", "content": user_input})
+
         try:
-            # Add user message to memory
-            self.memory.add_message("user", user_input)
-            
-            # Build prompt with context
-            context = self.memory.get_context()
-            prompt = self._build_prompt(user_input, context)
-            
-            self.logger.debug(f"Sending to {self.model}: {user_input[:100]}...")
-            
-            # Send to Ollama
-            response = requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": LLM_CONFIG.get("temperature", 0.7),
-                    "stream": False
-                },
-                timeout=30
-            )
-            
-            if response.status_code != 200:
-                self.logger.error(f"Ollama error {response.status_code}: {response.text}")
-                return "Sorry, I encountered an error processing your request."
-            
-            # Extract response
-            result = response.json()
-            ai_response = result.get("message", {}).get("content", "").strip()
-            
-            if not ai_response:
-                self.logger.warning("Empty response from Ollama")
-                return "I didn't understand that. Could you repeat?"
-            
-            # Add AI response to memory
-            self.memory.add_message("assistant", ai_response)
-            
-            self.logger.debug(f"Ollama response: {ai_response[:100]}...")
-            return ai_response
-            
-        except requests.exceptions.Timeout:
-            self.logger.error("Ollama request timed out")
-            return "I'm thinking too slow. Please try again."
-        except requests.exceptions.ConnectionError:
-            self.logger.error("Lost connection to Ollama")
-            return "I lost connection to my brain. Please check if Ollama is running."
-        except json.JSONDecodeError:
-            self.logger.error("Invalid JSON response from Ollama")
-            return "I had trouble understanding my response. Please try again."
+            return self.client.chat(messages)
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
-            return f"An error occurred: {str(e)}"
-
-    def _build_prompt(self, user_input: str, context: str) -> str:
-        """
-        Build a prompt for the LLM with context and instructions
-        
-        Args:
-            user_input: Current user input
-            context: Previous conversation context
-            
-        Returns:
-            Formatted prompt string
-        """
-        system_prompt = """You are LEVI, a helpful virtual voice assistant. 
-Be concise, friendly, and natural in your responses. 
-Keep responses brief (1-3 sentences) for TTS readability.
-Avoid lengthy explanations unless specifically asked."""
-        
-        if context:
-            return f"{system_prompt}\n\nConversation history:\n{context}\n\nUSER: {user_input}\n\nAssistant:"
-        else:
-            return f"{system_prompt}\n\nUSER: {user_input}\n\nAssistant:"
-
-    def clear_memory(self):
-        """Clear conversation history"""
-        self.memory.clear()
-        self.logger.info("Conversation memory cleared")
-
-
-# Global Ollama client instance (singleton pattern)
-_ollama_client = None
-
-
-def get_ollama_client():
-    """Get or create global Ollama client"""
-    global _ollama_client
-    if _ollama_client is None:
-        _ollama_client = OllamaClient()
-    return _ollama_client
+            return "Sorry, I had trouble generating a response."

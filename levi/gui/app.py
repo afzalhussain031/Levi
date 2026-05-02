@@ -9,16 +9,15 @@ from pathlib import Path
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QTextEdit, QLabel, QFrame
+    QPushButton, QTextEdit, QLabel
 )
-from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QColor, QIcon
+from PyQt6.QtCore import Qt, QObject, pyqtSignal
+from PyQt6.QtGui import QFont
 
 from audio.speech import SpeechRecognizer
 from audio.tts import VoiceOutput
-from core.brain import get_ollama_client
+from core.agent import LeviAgent
 from utils.config import SYSTEM_CONFIG
-import time
 from utils.logger import logger
 
 
@@ -37,9 +36,8 @@ class SignalEmitter(QObject):
 
 class AssistantWorkerThread(threading.Thread):
     """
-    Background worker thread that manages speech recognition and response generation
+    Background worker thread that manages speech recognition, AI decisions, and tool execution
     Emits signals via SignalEmitter for UI updates
-    Integrates with Ollama for AI-powered responses
     """
 
     def __init__(self, signal_emitter):
@@ -50,18 +48,7 @@ class AssistantWorkerThread(threading.Thread):
         # Create components directly
         self.speech_recognizer = SpeechRecognizer()
         self.voice_output = VoiceOutput()
-        
-        # Initialize AI brain (Ollama) if enabled
-        self.ai_enabled = SYSTEM_CONFIG.get("use_ai", True)
-        self.ollama_client = None
-        if self.ai_enabled:
-            try:
-                self.ollama_client = get_ollama_client()
-                logger.info("✓ AI brain (Ollama) initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize Ollama: {e}")
-                logger.warning("Falling back to echo mode")
-                self.ai_enabled = False
+        self.agent = LeviAgent()
 
     def run(self):
         """Main assistant loop for GUI"""
@@ -84,20 +71,12 @@ class AssistantWorkerThread(threading.Thread):
                     if text:
                         # Emit recognized text to UI
                         self.emitter.text_received.emit("recognized", text)
-                        
-                        # Generate response (AI or echo)
-                        if self.ai_enabled and self.ollama_client:
-                            response = self.ollama_client.generate_response(text)
-                        else:
-                            # Fallback: simple echo
-                            import time
-                            timestamp = time.strftime("%H:%M:%S")
-                            response = f"You said: {text}. Processed at {timestamp}."
-                        
-                        # Emit response to UI
+
+                        # Process input through the LangChain agent
+                        response = self.agent.run(text)
                         self.emitter.response_generated.emit(response)
-                        
-                        # Speak response (non-blocking)
+
+                        # Speak the final assistant message (non-blocking)
                         if SYSTEM_CONFIG["voice_enabled"]:
                             self.voice_output.speak_async(response)
 
