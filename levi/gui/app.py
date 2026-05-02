@@ -11,52 +11,94 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QTextEdit, QLabel, QFrame
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QColor, QIcon
 
-from core.loop import AssistantLoop
+from audio.speech import SpeechRecognizer
+from audio.tts import VoiceOutput
+from utils.config import SYSTEM_CONFIG
+import time
 from utils.logger import logger
 
 
-class AssistantSignals(threading.Thread):
+class SignalEmitter(QObject):
     """
-    Signal bridge: captures assistant loop events and emits PyQt signals
-    Runs in background to monitor AssistantLoop state and text queue
+    Signal emitter for assistant events
+    Inherits from QObject to use PyQt signals
     """
-    # PyQt signals (emitted to main thread)
+    # PyQt signals (thread-safe, emitted to main thread)
     started = pyqtSignal()
     stopped = pyqtSignal()
-    text_received = pyqtSignal(str, str)  # (event_type, text) where event_type is "recognized" or "response"
+    text_received = pyqtSignal(str, str)  # (event_type, text)
+    response_generated = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, assistant_loop):
+
+class AssistantWorkerThread(threading.Thread):
+    """
+    Background worker thread that manages speech recognition and response generation
+    Emits signals via SignalEmitter for UI updates
+    Does NOT use AssistantLoop; manages components directly
+    """
+
+    def __init__(self, signal_emitter):
         super().__init__(daemon=True)
-        self.assistant = assistant_loop
+        self.emitter = signal_emitter
         self._running = True
+        
+        # Create components directly
+        self.speech_recognizer = SpeechRecognizer()
+        self.voice_output = VoiceOutput()
 
     def run(self):
-        """Monitor assistant loop and emit signals"""
+        """Main assistant loop for GUI"""
         try:
-            self.started.emit()
+            self.emitter.started.emit()
+            
+            # Start listening
+            self.speech_recognizer.start_listening()
+            
+            # Play greeting
+            greeting = "Hello! I'm LEVI, your virtual assistant. I'm ready to listen."
+            if SYSTEM_CONFIG["voice_enabled"]:
+                self.voice_output.speak_async(greeting)
 
-            # Monitor loop while it's running
-            while self._running and self.assistant.running:
+            # Main loop: poll for recognized text and process
+            while self._running:
                 try:
-                    # Poll for recognized text
-                    text = self.assistant.speech_recognizer.get_text(timeout=0.5)
+                    # Poll for recognized text (non-blocking)
+                    text = self.speech_recognizer.get_text(timeout=0.5)
                     if text:
-                        self.text_received.emit("recognized", text)
+                        # Emit recognized text to UI
+                        self.emitter.text_received.emit("recognized", text)
+                        
+                        # Generate response (simple echo for now)
+                        timestamp = time.strftime("%H:%M:%S")
+                        response = f"You said: {text}. Processed at {timestamp}."
+                        
+                        # Emit response to UI
+                        self.emitter.response_generated.emit(response)
+                        
+                        # Speak response (non-blocking)
+                        if SYSTEM_CONFIG["voice_enabled"]:
+                            self.voice_output.speak_async(response)
 
                 except Exception as e:
-                    self.error_occurred.emit(str(e))
+                    self.emitter.error_occurred.emit(str(e))
 
         except Exception as e:
-            self.error_occurred.emit(f"Signal monitor error: {e}")
+            self.emitter.error_occurred.emit(f"Worker error: {e}")
         finally:
-            self.stopped.emit()
+            # Clean up
+            try:
+                self.speech_recognizer.stop_listening()
+                self.voice_output.wait_until_done(timeout=5)
+            except Exception:
+                pass
+            self.emitter.stopped.emit()
 
     def stop(self):
-        """Stop monitoring"""
+        """Stop the worker thread"""
         self._running = False
 
 
@@ -66,8 +108,8 @@ class LEVIMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.logger = logger
-        self.assistant = None
-        self.signal_thread = None
+        self.signal_emitter = None
+        self.worker_thread = None
 
         self.setWindowTitle("LEVI - Voice Assistant")
         self.setGeometry(100, 100, 900, 700)
@@ -197,25 +239,24 @@ class LEVIMainWindow(QMainWindow):
 
     def start_assistant(self):
         """Start the assistant and monitoring"""
-        if self.assistant is not None:
+        if self.worker_thread is not None:
             self.logger.warning("Assistant already running")
             return
 
         try:
-            # Create assistant loop
-            self.assistant = AssistantLoop()
+            # Create signal emitter (QObject with signals)
+            self.signal_emitter = SignalEmitter()
 
-            # Start assistant in a background thread
-            self.assistant_thread = threading.Thread(target=self.assistant.start, daemon=False)
-            self.assistant_thread.start()
+            # Connect signals to UI slots
+            self.signal_emitter.started.connect(self._on_assistant_started)
+            self.signal_emitter.stopped.connect(self._on_assistant_stopped)
+            self.signal_emitter.text_received.connect(self._on_text_received)
+            self.signal_emitter.response_generated.connect(self._on_response_generated)
+            self.signal_emitter.error_occurred.connect(self._on_error)
 
-            # Start signal monitoring thread
-            self.signal_thread = AssistantSignals(self.assistant)
-            self.signal_thread.started.connect(self._on_assistant_started)
-            self.signal_thread.stopped.connect(self._on_assistant_stopped)
-            self.signal_thread.text_received.connect(self._on_text_received)
-            self.signal_thread.error_occurred.connect(self._on_error)
-            self.signal_thread.start()
+            # Create and start worker thread (manages recognizer + TTS directly)
+            self.worker_thread = AssistantWorkerThread(self.signal_emitter)
+            self.worker_thread.start()
 
             # Update UI
             self.start_button.setEnabled(False)
@@ -230,25 +271,20 @@ class LEVIMainWindow(QMainWindow):
 
     def stop_assistant(self):
         """Stop the assistant"""
-        if self.assistant is None:
+        if self.worker_thread is None:
             return
 
         try:
-            # Stop assistant
-            self.assistant.stop()
+            # Signal worker thread to stop
+            self.worker_thread.stop()
 
-            # Wait for threads to finish
-            if self.assistant_thread and self.assistant_thread.is_alive():
-                self.assistant_thread.join(timeout=5)
-
-            if self.signal_thread:
-                self.signal_thread.stop()
-                self.signal_thread.join(timeout=2)
+            # Wait for thread to finish
+            if self.worker_thread.is_alive():
+                self.worker_thread.join(timeout=5)
 
             # Reset state
-            self.assistant = None
-            self.assistant_thread = None
-            self.signal_thread = None
+            self.worker_thread = None
+            self.signal_emitter = None
 
             # Update UI
             self.start_button.setEnabled(True)
@@ -268,28 +304,15 @@ class LEVIMainWindow(QMainWindow):
     def _on_assistant_stopped(self):
         """Called when assistant thread stops"""
         self.logger.info("Assistant stopped")
-        if self.assistant and self.assistant.running:
-            # If still marked as running, something went wrong
-            self._show_error("Assistant thread stopped unexpectedly")
 
     def _on_text_received(self, event_type, text):
-        """Called when recognized text arrives"""
+        """Called when recognized text arrives from worker"""
         if event_type == "recognized":
             self.text_display.append(f"<b style='color: #00ff41;'>🎤 You:</b> {text}")
-            # Also get and display the response
-            self._process_input(text)
-        elif event_type == "response":
-            self.text_display.append(f"<b style='color: #ffaa00;'>💬 LEVI:</b> {text}")
 
-    def _process_input(self, user_input):
-        """Process user input and display response"""
-        try:
-            import time
-            timestamp = time.strftime("%H:%M:%S")
-            response = f"You said: {user_input}. Processed at {timestamp}."
-            self.text_display.append(f"<b style='color: #ffaa00;'>💬 LEVI:</b> {response}\n")
-        except Exception as e:
-            self.logger.error(f"Error processing input: {e}")
+    def _on_response_generated(self, response):
+        """Called when assistant generates a response"""
+        self.text_display.append(f"<b style='color: #ffaa00;'>💬 LEVI:</b> {response}\n")
 
     def _on_error(self, error_msg):
         """Called when an error occurs"""
@@ -302,7 +325,7 @@ class LEVIMainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event"""
-        if self.assistant and self.assistant.running:
+        if self.worker_thread is not None:
             self.stop_assistant()
         event.accept()
 
