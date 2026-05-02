@@ -12,18 +12,21 @@ PROJECT_ROOT = Path(__file__).parent.parent
 AUDIO_CONFIG = {
     "sample_rate": 16000,           # Hz - faster-whisper requirement
     "chunk_duration": 0.5,          # seconds - buffer chunk size
-    "silence_threshold": 0.01,      # Energy threshold for silence detection (lowered for typical mics)
-    "silence_duration": 2.0,        # seconds - time of silence to trigger transcription
+    "silence_threshold": 0.0075,    # Energy threshold for silence detection (tuneable: ~0.005-0.01)
+    "silence_duration": 0.5,        # seconds - time of silence to trigger transcription (short for low-latency)
+    "energy_window": 0.8,           # seconds - compute energy on most recent window (0.5-1.0s)
+    "streaming": False,             # If True, transcribe each captured chunk immediately
     "device": None,                 # None = default device, or specify 'device_name'
 }
 
 # ==================== SPEECH RECOGNITION (faster-whisper) ====================
 STT_CONFIG = {
-    "model_size": "base",           # tiny, base, small, medium, large
-    "language": "en",               # Language code
+    "model_size": "tiny",          # tiny, base, small, medium, large
+    "device": "cpu",               # 'cpu' for CPU realtime; set to 'cuda' for GPU
+    "language": "en",              # Language code
     "temperature": 0.0,             # 0 = deterministic
     "condition_on_previous_text": False,  # Faster response
-    "compute_type": "int8",         # int8 or float32
+    "compute_type": "int8",        # int8 or float32 (int8 can help on CPU with quantized builds)
 }
 
 # ==================== TEXT-TO-SPEECH (edge-tts) ====================

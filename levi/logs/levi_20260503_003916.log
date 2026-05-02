@@ -1,0 +1,177 @@
+2026-05-03 00:39:16 | INFO     | LEVI: ============================================================
+2026-05-03 00:39:16 | INFO     | LEVI: 🤖 LEVI ASSISTANT - Initializing Core Loop
+2026-05-03 00:39:16 | INFO     | LEVI: ============================================================
+2026-05-03 00:39:16 | INFO     | LEVI: Initializing Speech Recognizer (faster-whisper)
+2026-05-03 00:39:17 | INFO     | LEVI: Speech Recognizer initialized successfully
+2026-05-03 00:39:17 | INFO     | LEVI: Initializing Voice Output (edge-tts)
+2026-05-03 00:39:17 | INFO     | LEVI: Voice Output ready - Voice: en-US-GuyNeural
+2026-05-03 00:39:17 | INFO     | LEVI: ✓ Core Loop initialized successfully
+2026-05-03 00:39:17 | INFO     | LEVI: Starting continuous speech recognition...
+2026-05-03 00:39:17 | INFO     | LEVI: 🎙️  LEVI is now listening...
+2026-05-03 00:39:17 | INFO     | LEVI: 🔊 Speaking: Hello! I'm LEVI, your virtual assistant. I'm ready to listen....
+2026-05-03 00:39:17 | INFO     | LEVI: Microphone stream opened
+2026-05-03 00:39:18 | DEBUG    | LEVI: Captured 8000 samples, buffer length 8000, queue size -
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001670 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Captured 8000 samples, buffer length 16000, queue size -
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:18 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.001100 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Captured 8000 samples, buffer length 24000, queue size -
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Captured 8000 samples, buffer length 32000, queue size -
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:19 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000373 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Captured 8000 samples, buffer length 40000, queue size -
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Speech started (energy: 0.0101)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.010138 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Captured 8000 samples, buffer length 48000, queue size -
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:20 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.009215 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Captured 8000 samples, buffer length 56000, queue size -
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000060 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Silence detected (0.50s), transcribing...
+2026-05-03 00:39:21 | INFO     | LEVI: Transcribing audio...
+2026-05-03 00:39:21 | ERROR    | LEVI: Error during transcription: Library cublas64_12.dll is not found or cannot be loaded
+2026-05-03 00:39:21 | DEBUG    | LEVI: Captured 8000 samples, buffer length 8000, queue size -
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000055 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000055 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000055 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000055 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000055 (threshold: 0.0075)
+2026-05-03 00:39:21 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000055 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000055 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Captured 8000 samples, buffer length 16000, queue size -
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000064 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Captured 8000 samples, buffer length 24000, queue size -
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:22 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000061 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Captured 8000 samples, buffer length 32000, queue size -
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.000161 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Captured 8000 samples, buffer length 40000, queue size -
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:23 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.006351 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Captured 8000 samples, buffer length 48000, queue size -
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Speech started (energy: 0.0112)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.011170 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Captured 8000 samples, buffer length 56000, queue size -
+2026-05-03 00:39:24 | DEBUG    | LEVI: Audio energy (last 0.8s): 0.007261 (threshold: 0.0075)
+2026-05-03 00:39:24 | DEBUG    | LEVI: Silence detected (0.50s), transcribing...
+2026-05-03 00:39:24 | INFO     | LEVI: Transcribing audio...
+2026-05-03 00:39:25 | DEBUG    | LEVI: Captured 8000 samples, buffer length 64000, queue size -
+2026-05-03 00:39:25 | DEBUG    | LEVI: Captured 8000 samples, buffer length 72000, queue size -
+2026-05-03 00:39:26 | DEBUG    | LEVI: Captured 8000 samples, buffer length 80000, queue size -
+2026-05-03 00:39:26 | DEBUG    | LEVI: Captured 8000 samples, buffer length 88000, queue size -
+2026-05-03 00:39:27 | DEBUG    | LEVI: Captured 8000 samples, buffer length 96000, queue size -
+2026-05-03 00:39:27 | DEBUG    | LEVI: Captured 8000 samples, buffer length 104000, queue size -
+2026-05-03 00:39:28 | DEBUG    | LEVI: Captured 8000 samples, buffer length 112000, queue size -
+2026-05-03 00:39:28 | DEBUG    | LEVI: Captured 8000 samples, buffer length 120000, queue size -
+2026-05-03 00:39:29 | DEBUG    | LEVI: Captured 8000 samples, buffer length 128000, queue size -
+2026-05-03 00:39:29 | DEBUG    | LEVI: Captured 8000 samples, buffer length 136000, queue size -
+2026-05-03 00:39:30 | DEBUG    | LEVI: Captured 8000 samples, buffer length 144000, queue size -
+2026-05-03 00:39:30 | DEBUG    | LEVI: Captured 8000 samples, buffer length 152000, queue size -
+2026-05-03 00:39:31 | DEBUG    | LEVI: Captured 8000 samples, buffer length 160000, queue size -
+2026-05-03 00:39:31 | DEBUG    | LEVI: Captured 8000 samples, buffer length 168000, queue size -
+2026-05-03 00:39:32 | DEBUG    | LEVI: Captured 8000 samples, buffer length 176000, queue size -
+2026-05-03 00:39:32 | DEBUG    | LEVI: Captured 8000 samples, buffer length 184000, queue size -
+2026-05-03 00:39:33 | DEBUG    | LEVI: Captured 8000 samples, buffer length 192000, queue size -
+2026-05-03 00:39:33 | DEBUG    | LEVI: Captured 8000 samples, buffer length 200000, queue size -
+2026-05-03 00:39:34 | DEBUG    | LEVI: Captured 8000 samples, buffer length 208000, queue size -
+2026-05-03 00:39:34 | DEBUG    | LEVI: Captured 8000 samples, buffer length 216000, queue size -
+2026-05-03 00:39:35 | DEBUG    | LEVI: Captured 8000 samples, buffer length 224000, queue size -
+2026-05-03 00:39:35 | DEBUG    | LEVI: Captured 8000 samples, buffer length 232000, queue size -
+2026-05-03 00:39:36 | DEBUG    | LEVI: Captured 8000 samples, buffer length 240000, queue size -
+2026-05-03 00:39:36 | DEBUG    | LEVI: Captured 8000 samples, buffer length 248000, queue size -
+2026-05-03 00:39:37 | DEBUG    | LEVI: Captured 8000 samples, buffer length 256000, queue size -
+2026-05-03 00:39:37 | DEBUG    | LEVI: Captured 8000 samples, buffer length 264000, queue size -
+2026-05-03 00:39:38 | DEBUG    | LEVI: Captured 8000 samples, buffer length 272000, queue size -
+2026-05-03 00:39:38 | DEBUG    | LEVI: Captured 8000 samples, buffer length 280000, queue size -
+2026-05-03 00:39:39 | DEBUG    | LEVI: Captured 8000 samples, buffer length 288000, queue size -
+2026-05-03 00:39:39 | DEBUG    | LEVI: Captured 8000 samples, buffer length 296000, queue size -
+2026-05-03 00:39:40 | DEBUG    | LEVI: Captured 8000 samples, buffer length 304000, queue size -
+2026-05-03 00:39:40 | DEBUG    | LEVI: Captured 8000 samples, buffer length 312000, queue size -
+2026-05-03 00:39:41 | DEBUG    | LEVI: Captured 8000 samples, buffer length 320000, queue size -
+2026-05-03 00:39:41 | DEBUG    | LEVI: Captured 8000 samples, buffer length 328000, queue size -
+2026-05-03 00:39:42 | DEBUG    | LEVI: Captured 8000 samples, buffer length 336000, queue size -
+2026-05-03 00:39:42 | DEBUG    | LEVI: Captured 8000 samples, buffer length 344000, queue size -
+2026-05-03 00:39:43 | DEBUG    | LEVI: Captured 8000 samples, buffer length 352000, queue size -
+2026-05-03 00:39:43 | DEBUG    | LEVI: Captured 8000 samples, buffer length 360000, queue size -
+2026-05-03 00:39:44 | DEBUG    | LEVI: Captured 8000 samples, buffer length 368000, queue size -
+2026-05-03 00:39:44 | DEBUG    | LEVI: Captured 8000 samples, buffer length 376000, queue size -
+2026-05-03 00:39:44 | INFO     | LEVI: 
+⏸️  Received stop signal
+2026-05-03 00:39:44 | INFO     | LEVI: ⏹️  Stopping LEVI...
+2026-05-03 00:39:44 | INFO     | LEVI: Stopping speech recognition...
+2026-05-03 00:39:44 | INFO     | LEVI: ✓ LEVI stopped
+2026-05-03 00:39:44 | DEBUG    | LEVI: Captured 8000 samples, buffer length 384000, queue size -

@@ -26,10 +26,12 @@ class SpeechRecognizer:
         self.logger = logger
         self.logger.info("Initializing Speech Recognizer (faster-whisper)")
 
-        # Load whisper model
+        # Load whisper model on configured device (cpu recommended for local realtime)
+        device = STT_CONFIG.get("device", "cuda")
+        self.logger.info(f"Loading WhisperModel size={STT_CONFIG['model_size']} device={device} compute_type={STT_CONFIG.get('compute_type')}")
         self.model = WhisperModel(
             model_size_or_path=STT_CONFIG["model_size"],
-            device="cuda",  # Use GPU if available, will fallback to CPU
+            device=device,
             compute_type=STT_CONFIG["compute_type"]
         )
 
@@ -38,6 +40,8 @@ class SpeechRecognizer:
         self.chunk_size = int(self.sample_rate * AUDIO_CONFIG["chunk_duration"])
         self.silence_threshold = AUDIO_CONFIG["silence_threshold"]
         self.silence_duration = AUDIO_CONFIG["silence_duration"]
+        self.energy_window = AUDIO_CONFIG.get("energy_window", 0.8)
+        self.streaming = AUDIO_CONFIG.get("streaming", False)
         # For faster testing, use a shorter min buffer (0.5s) when processing
         self._min_buffer_seconds = 0.5
 
@@ -45,6 +49,10 @@ class SpeechRecognizer:
         self.audio_buffer = deque(maxlen=int(self.sample_rate * 30))  # 30 second buffer
         self.recording = False
         self.is_listening = False
+        self._speech_start = 0
+
+        # Streaming queue (optional)
+        self.audio_queue = queue.Queue(maxsize=32) if self.streaming else None
 
         # Output queue for recognized text
         self.text_queue = queue.Queue()
@@ -108,11 +116,23 @@ class SpeechRecognizer:
                     # Extend the circular buffer with the new samples
                     self.audio_buffer.extend(audio_data)
 
-                    # Debug: confirm audio capture (sample count and buffer length)
+                    # If streaming mode is enabled, enqueue the chunk for immediate processing
+                    if self.streaming:
+                        try:
+                            # Put latest chunk, drop oldest if queue full
+                            self.audio_queue.put_nowait(audio_data)
+                        except queue.Full:
+                            try:
+                                _ = self.audio_queue.get_nowait()
+                                self.audio_queue.put_nowait(audio_data)
+                            except Exception:
+                                pass
+
+                    # Debug: confirm audio capture (sample count, buffer length, queue size)
                     try:
-                        self.logger.debug(f"Captured {len(audio_data)} samples, buffer length {len(self.audio_buffer)}")
+                        qsize = self.audio_queue.qsize() if self.streaming else "-"
+                        self.logger.debug(f"Captured {len(audio_data)} samples, buffer length {len(self.audio_buffer)}, queue size {qsize}")
                     except Exception:
-                        # Ensure logging problems don't crash capture loop
                         pass
 
         except Exception as e:
@@ -123,50 +143,82 @@ class SpeechRecognizer:
         Background thread: Process audio buffer
         Detects speech and sends for transcription
         """
+        # Two modes: streaming (transcribe each chunk) or VAD-based (short-window energy)
         silence_counter = 0
 
         while self.is_listening:
             try:
-                # Check if we have enough audio data (shorter for testing)
-                min_samples = int(self.sample_rate * self._min_buffer_seconds)
-                if len(self.audio_buffer) < min_samples:
-                    threading.Event().wait(0.1)  # Non-blocking wait
+                if self.streaming:
+                    # Consume small chunks and transcribe immediately
+                    try:
+                        chunk = self.audio_queue.get(timeout=0.5)
+                    except queue.Empty:
+                        continue
+
+                    try:
+                        segments, info = self.model.transcribe(
+                            chunk,
+                            language=STT_CONFIG["language"],
+                            temperature=STT_CONFIG["temperature"],
+                            condition_on_previous_text=False
+                        )
+                        text = " ".join([s.text for s in segments]).strip()
+                        if text:
+                            self.logger.info(f"🎤 Recognized: {text}")
+                            self.text_queue.put(text)
+                    except Exception as e:
+                        self.logger.debug(f"Streaming chunk transcription error: {e}")
+
                     continue
 
-                # Convert buffer to numpy array
-                audio_chunk = np.array(list(self.audio_buffer), dtype=np.float32)
+                # VAD-based processing: compute energy over a short recent window
+                min_samples = int(self.sample_rate * self._min_buffer_seconds)
+                if len(self.audio_buffer) < min_samples:
+                    threading.Event().wait(0.1)
+                    continue
 
-                # Debug: log computed energy for VAD tuning
+                # Compute energy on recent window only
+                window_samples = int(self.sample_rate * self.energy_window)
+                recent = list(self.audio_buffer)[-window_samples:]
+                audio_chunk = np.array(recent, dtype=np.float32)
+
                 try:
-                    energy = np.sqrt(np.mean(audio_chunk ** 2))
-                    self.logger.debug(f"Audio energy: {energy:.6f} (threshold: {self.silence_threshold})")
+                    energy = float(np.sqrt(np.mean(audio_chunk ** 2)))
                 except Exception:
                     energy = 0.0
 
-                # Calculate energy (simple VAD) -- already computed above
+                self.logger.debug(f"Audio energy (last {self.energy_window}s): {energy:.6f} (threshold: {self.silence_threshold})")
 
-                # Check for speech activity
+                # Simple energy VAD
                 if energy > self.silence_threshold:
                     silence_counter = 0
+                    if not self.recording:
+                        self.logger.debug(f"Speech started (energy: {energy:.4f})")
+                        # Mark approximate start position (include the recent energy window)
+                        window_samples = int(self.sample_rate * self.energy_window)
+                        self._speech_start = max(0, len(self.audio_buffer) - window_samples)
                     self.recording = True
-
-                    # Log speech detection when buffer has reached the short threshold
-                    if len(self.audio_buffer) > min_samples:
-                        self.logger.debug(f"Speech detected (energy: {energy:.4f})")
 
                 else:
                     if self.recording:
                         silence_counter += AUDIO_CONFIG["chunk_duration"]
-
-                        # If silence threshold reached, transcribe
                         if silence_counter >= self.silence_duration:
-                            self.logger.debug(f"Silence detected ({silence_counter:.1f}s), transcribing...")
-                            self._transcribe(audio_chunk)
+                            self.logger.debug(f"Silence detected ({silence_counter:.2f}s), transcribing...")
+                            # Build a chunk to transcribe: use samples from when speech started to now
+                            full_buf = list(self.audio_buffer)
+                            start = int(self._speech_start) if hasattr(self, "_speech_start") else max(0, len(full_buf) - int(self.sample_rate * self.energy_window))
+                            to_trans = full_buf[start:]
+                            # If nothing meaningful, fallback to a small recent window
+                            if len(to_trans) < 100:
+                                trans_window = int(self.sample_rate * max(self.energy_window, AUDIO_CONFIG["chunk_duration"]))
+                                to_trans = full_buf[-trans_window:]
+                            self.logger.debug(f"Transcribing {len(to_trans)} samples (start={start}, buf_len={len(full_buf)})")
+                            self._transcribe(np.array(to_trans, dtype=np.float32))
                             self.audio_buffer.clear()
                             self.recording = False
                             silence_counter = 0
 
-                threading.Event().wait(0.1)  # Avoid busy waiting
+                threading.Event().wait(0.05)
 
             except Exception as e:
                 self.logger.error(f"Error in processing loop: {e}")
