@@ -95,13 +95,30 @@ winget install FFmpeg
 ffmpeg -version
 ```
 
-### Step 4: Fix Audio Input (If needed)
+### Step 5: Vision Setup (Optional - For Screen Analysis)
 
-If you get microphone errors, install additional audio libraries:
+LEVI can analyze your screen using LLaVA vision models through Ollama.
+
+**Install Ollama:**
 ```powershell
-pip install pyaudio
-# Or:
-pip install portaudio
+# Download from: https://ollama.ai/download
+# Install and start Ollama service
+```
+
+**Pull LLaVA Model:**
+```powershell
+# In a terminal (not PowerShell):
+ollama pull llava
+```
+
+**Verify Vision Dependencies:**
+```powershell
+pip install Pillow pyautogui
+```
+
+**Test Vision:**
+```powershell
+python -c "import core.vision; v = core.vision.get_vision_processor(); print('Vision ready')"
 ```
 
 ---
@@ -226,6 +243,7 @@ This is normal. Assistant will fall back to CPU (slower but works fine).
 - Conversation memory
 - Browser automation
 - System integration
+- **Vision capabilities** (LLaVA screen analysis)
 
 ---
 
@@ -260,6 +278,17 @@ LEVI: "You said: Open my browser. Processed at 10:31:12."
 ```
 
 *(Phase 2 will actually execute these commands)*
+
+### Vision Examples (Phase 5):
+```
+YOU: "What's on my screen?"
+
+LEVI: "Screen analysis: I can see a web browser window open with a search page, a code editor with Python files, and some system icons in the taskbar."
+
+YOU: "Read the text on my screen"
+
+LEVI: "Screen text: Welcome to GitHub - LEVI Virtual Assistant, def analyze_screen(self, tool_input: str) -> str:, import PIL from ImageGrab"
+```
 
 ---
 

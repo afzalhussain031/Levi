@@ -98,6 +98,30 @@ class AssistantWorkerThread(threading.Thread):
         """Stop the worker thread"""
         self._running = False
 
+    def reset_session(self):
+        """Stop speech, clear buffers, and prepare for fresh listening"""
+        try:
+            # 1. Request interrupt of any ongoing speech
+            from audio.state import request_interrupt, set_audio_state, AudioState
+            
+            request_interrupt()  # Signal to stop TTS
+            self.voice_output.wait_until_done(timeout=1)  # Wait for speech to finish
+            
+            # 2. Clear audio buffer (discard any half-heard speech)
+            self.speech_recognizer._clear_audio_buffer()
+            
+            # 3. Clear any pending transcription text
+            self.speech_recognizer.clear_queue()
+            
+            # 4. Reset to LISTENING state
+            set_audio_state(AudioState.LISTENING)
+            
+            # 5. Play confirmation message
+            self.voice_output.speak_async("Listening session reset. Ready to listen.")
+            
+        except Exception as e:
+            self.logger.error(f"Error during session reset: {e}")
+
 
 class LEVIMainWindow(QMainWindow):
     """Main LEVI GUI window"""
@@ -177,6 +201,13 @@ class LEVIMainWindow(QMainWindow):
         self.stop_button.setMinimumHeight(50)
         self.stop_button.setEnabled(False)
         button_layout.addWidget(self.stop_button)
+
+        self.reset_button = QPushButton("🔄 Stop & Reset")
+        self.reset_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.reset_button.clicked.connect(self.reset_session)
+        self.reset_button.setMinimumHeight(50)
+        self.reset_button.setEnabled(False)
+        button_layout.addWidget(self.reset_button)
 
         self.clear_button = QPushButton("🗑️ Clear")
         self.clear_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
@@ -292,6 +323,7 @@ class LEVIMainWindow(QMainWindow):
             # Update UI
             self.start_button.setEnabled(False)
             self.stop_button.setEnabled(True)
+            self.reset_button.setEnabled(True)
             self.status_label.setText("🟢 Listening...")
             self.status_label.setStyleSheet("color: #00ff41;")
             self.text_display.append("[System] LEVI started. Listening for your voice...\n")
@@ -320,6 +352,7 @@ class LEVIMainWindow(QMainWindow):
             # Update UI
             self.start_button.setEnabled(True)
             self.stop_button.setEnabled(False)
+            self.reset_button.setEnabled(False)
             self.status_label.setText("🔴 Stopped")
             self.status_label.setStyleSheet("color: #ff4444;")
             self.text_display.append("[System] LEVI stopped.\n")
@@ -327,6 +360,16 @@ class LEVIMainWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f"Error stopping assistant: {e}")
             self._show_error(f"Error stopping LEVI: {e}")
+
+    def reset_session(self):
+        """User clicked reset button - stop everything and start fresh"""
+        if self.worker_thread:
+            self.worker_thread.reset_session()
+            # Clear chat display/logs completely
+            self.text_display.clear()
+            self.text_display.append("[🔄 Session Reset - Fresh listening session started]")
+            self.status_label.setText("🟢 Listening...")
+            self.status_label.setStyleSheet("color: #00ff41;")
 
     def _on_assistant_started(self):
         """Called when assistant thread starts"""

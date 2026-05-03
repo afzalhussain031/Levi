@@ -21,7 +21,7 @@ AUDIO_CONFIG = {
 
 # ==================== SPEECH RECOGNITION (faster-whisper) ====================
 STT_CONFIG = {
-    "model_size": "medium",         # tiny, base, small, medium, large (upgraded for accuracy)
+    "model_size": "base",           # tiny, base, small, medium, large (base = good speed/accuracy tradeoff)
     "device": "cpu",               # 'cpu' for CPU realtime; set to 'cuda' for GPU
     "language": "en",              # Language code
     "temperature": 0.0,             # 0 = deterministic
@@ -40,11 +40,19 @@ TTS_CONFIG = {
 # ==================== LLM CONFIGURATION (Ollama) ====================
 LLM_CONFIG = {
     "base_url": "http://localhost:11434",  # Ollama default endpoint (ensure `ollama serve` is running)
-    "model": "llama3.1",              # Model name (llama2, llama3, mistral, neural-chat, etc.)
+    "model": "mistral",              # Model name (llama2, llama3, mistral, neural-chat, etc.)
     "temperature": 0.3,            # Lower temp = more focused, less creative (better for tool avoidance)
     "top_p": 0.9,
-    "max_tokens": 500,
+    "max_tokens": 150,
     "max_messages": 10,            # Conversation history size for context
+}
+
+# ==================== VISION CONFIGURATION ====================
+VISION_CONFIG = {
+    "llava_model": "llava",         # LLaVA model name in Ollama
+    "max_image_size": 1024,         # Maximum dimension for image resizing (pixels)
+    "image_quality": 85,            # JPEG quality for base64 encoding (1-100)
+    "request_timeout": 30,          # Timeout for Ollama API requests (seconds)
 }
 
 # ==================== MEMORY CONFIGURATION ====================

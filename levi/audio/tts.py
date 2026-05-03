@@ -12,6 +12,7 @@ import time
 import shutil
 import logging
 
+from audio.state import AudioState, clear_interrupt_request, interrupt_requested, set_audio_state
 from utils.logger import logger
 from utils.config import TTS_CONFIG, PATHS
 
@@ -45,6 +46,8 @@ class VoiceOutput:
         if not text or not text.strip():
             return
 
+        clear_interrupt_request()
+
         # Start speech in daemon thread
         self.speech_thread = threading.Thread(
             target=self._speak_blocking,
@@ -66,6 +69,8 @@ class VoiceOutput:
             self.logger.error(f"Error in TTS: {e}")
         finally:
             self._speaking = False
+            self.logger.info("🔄 Setting audio state to LISTENING (TTS finished)")
+            set_audio_state(AudioState.LISTENING)
 
     async def _speak_async(self, text):
         """Async TTS function using edge-tts"""
@@ -92,10 +97,20 @@ class VoiceOutput:
                         "quiet",
                         tmp_path
                     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    # Wait for playback to complete
-                    proc.wait()
+
+                    while proc.poll() is None:
+                        if interrupt_requested():
+                            self.logger.info("🛑 Interrupt requested during TTS playback - stopping")
+                            try:
+                                proc.terminate()
+                                proc.wait(timeout=2)
+                            except Exception:
+                                proc.kill()
+                            break
+                        await asyncio.sleep(0.1)
                 else:
                     # Try playsound as a fallback
+                    self.logger.warning("ffplay unavailable: stop interruption may not work while TTS plays")
                     try:
                         from playsound import playsound
                         self.logger.debug("Playing TTS via playsound fallback")

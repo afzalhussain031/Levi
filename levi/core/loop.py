@@ -6,6 +6,7 @@ Non-blocking architecture for responsive interactions
 
 import time
 from audio.speech import SpeechRecognizer
+from audio.state import AudioState, get_audio_state, set_audio_state
 from audio.tts import VoiceOutput
 from core.agent import LeviAgent
 from utils.logger import logger
@@ -34,6 +35,9 @@ class AssistantLoop:
         self.running = False
         self.processing_input = False
 
+        # Initialize audio state machine
+        set_audio_state(AudioState.LISTENING)
+
         self.logger.info("✓ Core Loop initialized successfully")
 
     def start(self):
@@ -44,6 +48,13 @@ class AssistantLoop:
 
         self.running = True
         self.speech_recognizer.start_listening()
+
+        # Speak welcome prompt before resuming live listening
+        set_audio_state(AudioState.SPEAKING)
+        self.voice_output.speak_async("Hello! I'm LEVI, your virtual assistant. I'm ready to listen.")
+        self.voice_output.wait_until_done()
+        set_audio_state(AudioState.LISTENING)
+
         self.logger.info("🎙️  LEVI is now listening...")
 
         try:
@@ -59,7 +70,6 @@ class AssistantLoop:
         2. Process if available
         3. Generate response
         """
-        self.voice_output.speak_async("Hello! I'm LEVI, your virtual assistant. I'm ready to listen.")
 
         while self.running:
             try:
@@ -67,8 +77,11 @@ class AssistantLoop:
                 recognized_text = self.speech_recognizer.get_text(timeout=0.5)
 
                 if recognized_text:
-                    self.logger.debug(f"Input received: {recognized_text}")
-                    self._process_input(recognized_text)
+                    if get_audio_state() == AudioState.LISTENING:
+                        self.logger.debug(f"Input received: {recognized_text}")
+                        self._process_input(recognized_text)
+                    else:
+                        self.logger.debug("Input received while not listening; ignoring until resume.")
 
                 # Non-blocking loop iteration
                 time.sleep(0.1)
@@ -82,21 +95,34 @@ class AssistantLoop:
         self.processing_input = True
 
         try:
+            self.logger.info("🔄 Setting audio state to PROCESSING")
+            set_audio_state(AudioState.PROCESSING)
+            self.speech_recognizer._clear_audio_buffer()
+            self.speech_recognizer.clear_queue()  # Clear any pending transcriptions
+
             self.logger.info(f"📝 Processing: {user_input}")
-
             response = self.agent.run(user_input)
-
             self.logger.info(f"💬 Response: {response}")
 
             # Speak response (non-blocking)
             if SYSTEM_CONFIG["voice_enabled"]:
+                self.logger.info("🔄 Setting audio state to SPEAKING")
+                set_audio_state(AudioState.SPEAKING)
                 self.voice_output.speak_async(response)
+            else:
+                self.logger.info("🔄 Setting audio state to LISTENING (no TTS)")
+                set_audio_state(AudioState.LISTENING)
 
         except Exception as e:
             self.logger.error(f"Error processing input: {e}")
             error_response = "Sorry, I encountered an error processing your request."
             if SYSTEM_CONFIG["voice_enabled"]:
+                self.logger.info("🔄 Setting audio state to SPEAKING (error)")
+                set_audio_state(AudioState.SPEAKING)
                 self.voice_output.speak_async(error_response)
+            else:
+                self.logger.info("🔄 Setting audio state to LISTENING (error, no TTS)")
+                set_audio_state(AudioState.LISTENING)
 
         finally:
             self.processing_input = False

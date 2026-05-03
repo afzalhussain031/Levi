@@ -6,11 +6,13 @@ Continuously listens and pushes recognized text to a queue
 
 import threading
 import queue
+import re
 import numpy as np
 from faster_whisper import WhisperModel
 from collections import deque
 import sounddevice as sd
 
+from audio.state import AudioState, get_audio_state, request_interrupt, wait_for_listening
 from utils.logger import logger
 from utils.config import AUDIO_CONFIG, STT_CONFIG
 
@@ -53,6 +55,7 @@ class SpeechRecognizer:
 
         # Streaming queue (optional)
         self.audio_queue = queue.Queue(maxsize=32) if self.streaming else None
+        self.stop_queue = queue.Queue(maxsize=8)
 
         # Output queue for recognized text
         self.text_queue = queue.Queue()
@@ -101,39 +104,69 @@ class SpeechRecognizer:
                 self.logger.info("Microphone stream opened")
 
                 while self.is_listening:
-                    # Read audio chunk from the open stream
-                    indata, overflowed = stream.read(self.chunk_size)
+                    current_state = get_audio_state()
 
-                    if overflowed:
-                        self.logger.warning("Audio input overflowed")
+                    if current_state == AudioState.LISTENING:
+                        indata, overflowed = stream.read(self.chunk_size)
 
-                    # Convert to numpy array and add to buffer
-                    if isinstance(indata, np.ndarray):
-                        audio_data = indata.flatten()
-                    else:
-                        audio_data = np.frombuffer(indata, dtype=np.float32).flatten()
+                        if overflowed:
+                            self.logger.warning("Audio input overflowed")
 
-                    # Extend the circular buffer with the new samples
-                    self.audio_buffer.extend(audio_data)
+                        if isinstance(indata, np.ndarray):
+                            audio_data = indata.flatten()
+                        else:
+                            audio_data = np.frombuffer(indata, dtype=np.float32).flatten()
 
-                    # If streaming mode is enabled, enqueue the chunk for immediate processing
-                    if self.streaming:
+                        self.audio_buffer.extend(audio_data)
+
+                        if self.streaming and self.audio_queue is not None:
+                            try:
+                                self.audio_queue.put_nowait(audio_data)
+                            except queue.Full:
+                                try:
+                                    _ = self.audio_queue.get_nowait()
+                                    self.audio_queue.put_nowait(audio_data)
+                                except Exception:
+                                    pass
+
                         try:
-                            # Put latest chunk, drop oldest if queue full
-                            self.audio_queue.put_nowait(audio_data)
+                            qsize = self.audio_queue.qsize() if self.streaming else "-"
+                            self.logger.debug(f"Captured {len(audio_data)} samples, buffer length {len(self.audio_buffer)}, queue size {qsize}")
+                        except Exception:
+                            pass
+
+                        continue
+
+                    if current_state == AudioState.SPEAKING:
+                        indata, overflowed = stream.read(self.chunk_size)
+
+                        if overflowed:
+                            self.logger.warning("Audio input overflowed during speaking")
+
+                        if isinstance(indata, np.ndarray):
+                            audio_data = indata.flatten()
+                        else:
+                            audio_data = np.frombuffer(indata, dtype=np.float32).flatten()
+
+                        try:
+                            self.stop_queue.put_nowait(audio_data)
                         except queue.Full:
                             try:
-                                _ = self.audio_queue.get_nowait()
-                                self.audio_queue.put_nowait(audio_data)
+                                _ = self.stop_queue.get_nowait()
+                                self.stop_queue.put_nowait(audio_data)
                             except Exception:
                                 pass
 
-                    # Debug: confirm audio capture (sample count, buffer length, queue size)
-                    try:
-                        qsize = self.audio_queue.qsize() if self.streaming else "-"
-                        self.logger.debug(f"Captured {len(audio_data)} samples, buffer length {len(self.audio_buffer)}, queue size {qsize}")
-                    except Exception:
-                        pass
+                        continue
+
+                    if current_state == AudioState.PROCESSING:
+                        try:
+                            stream.read(self.chunk_size)
+                        except Exception:
+                            pass
+                        self._clear_audio_buffer()
+                        wait_for_listening(timeout=0.1)
+                        continue
 
         except Exception as e:
             self.logger.error(f"Error in audio capture: {e}")
@@ -148,6 +181,25 @@ class SpeechRecognizer:
 
         while self.is_listening:
             try:
+                current_state = get_audio_state()
+
+                # During PROCESSING or SPEAKING, completely skip all audio processing
+                if current_state != AudioState.LISTENING:
+                    # Handle stop detection during speaking
+                    if current_state == AudioState.SPEAKING:
+                        try:
+                            stop_chunk = self.stop_queue.get(timeout=0.5)
+                        except queue.Empty:
+                            pass
+                        else:
+                            if self._detect_stop(np.array(stop_chunk, dtype=np.float32)):
+                                self.logger.info("🛑 Stop keyword detected during speaking - requesting interrupt")
+                                request_interrupt()
+                                self._clear_audio_buffer()
+                    self._clear_audio_buffer()
+                    threading.Event().wait(0.1)
+                    continue
+
                 if self.streaming:
                     # Consume small chunks and transcribe immediately
                     try:
@@ -250,6 +302,47 @@ class SpeechRecognizer:
 
         except Exception as e:
             self.logger.error(f"Error during transcription: {e}")
+
+    def _detect_stop(self, audio_data):
+        """Detect the spoken stop keyword during speaking."""
+        try:
+            segments, info = self.model.transcribe(
+                audio_data,
+                language=STT_CONFIG["language"],
+                temperature=0.0,
+                condition_on_previous_text=False
+            )
+            text = " ".join([segment.text for segment in segments]).strip().lower()
+            if not text:
+                return False
+
+            if re.search(r"\bstop\b", text):
+                self.logger.info(f"Stop keyword detected: {text}")
+                return True
+
+        except Exception as e:
+            self.logger.debug(f"Stop detection transcription failed: {e}")
+
+        return False
+
+    def _clear_audio_buffer(self):
+        """Clear captured audio so no audio is processed while paused."""
+        try:
+            self.audio_buffer.clear()
+            self.recording = False
+            if self.audio_queue is not None:
+                while not self.audio_queue.empty():
+                    try:
+                        self.audio_queue.get_nowait()
+                    except queue.Empty:
+                        break
+            while not self.stop_queue.empty():
+                try:
+                    self.stop_queue.get_nowait()
+                except queue.Empty:
+                    break
+        except Exception:
+            pass
 
     def get_text(self, timeout=None):
         """

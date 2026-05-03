@@ -49,12 +49,14 @@ class LeviAgent:
 				model=LLM_CONFIG.get("model", "llama3.1"),
 				base_url=LLM_CONFIG.get("base_url", "http://localhost:11434"),
 				temperature=LLM_CONFIG.get("temperature", 0.7),
+				max_tokens=LLM_CONFIG.get("max_tokens", 500),
 			)
 			self.agent_executor = create_agent(
 				model=self.llm,
 				tools=self.tools,
 				system_prompt=(
-				"You are LEVI, a concise, helpful local voice assistant.\n\n"
+				"You are LEVI, a concise, helpful local voice assistant with vision capabilities.\n\n"
+				"Be concise. Answer in 1-2 sentences.\n\n"
 				"ABSOLUTE RULE: Answer questions directly. NEVER use web_search for general knowledge.\n\n"
 				"ALWAYS ANSWER DIRECTLY FOR:\n"
 				"- Facts about people (Einstein, Michael Jackson, etc.)\n"
@@ -68,9 +70,11 @@ class LeviAgent:
 				"- Include JSON or code in responses\n"
 				"- Show thinking about what tool to use\n\n"
 				"Just answer naturally and conversationally.\n"
-				"Use tools ONLY if the user explicitly asks to search, open applications, open folders, open files, or manage files.\n"
-				"Available tools include open_application, open_folder, open_file, list_files, read_file, create_file, append_to_file, move_file, copy_file, create_folder, delete_file, delete_folder.\n"
-				"Always confirm before deleting anything."
+				"Use tools ONLY if the user explicitly asks to search, open applications, open folders, open files, manage files, or analyze screen content.\n"
+				"Available tools include open_application, open_folder, open_file, list_files, read_file, create_file, append_to_file, move_file, copy_file, create_folder, delete_file, delete_folder, analyze_screen, read_screen_text.\n"
+				"Always confirm before deleting anything.\n"
+				"For vision requests like 'What's on my screen?' or 'Describe what you see', use analyze_screen.\n"
+				"For text extraction like 'What text is visible?' or 'Read the screen', use read_screen_text."
 				),
 				debug=False,
 				name="LEVI",
@@ -115,6 +119,7 @@ class LeviAgent:
 			# Add system prompt for pure conversation mode
 			messages.append(SystemMessage(content=(
 				"You are LEVI, a helpful voice assistant. "
+				"Be concise. Answer in 1-2 sentences. "
 				"Answer all questions directly and conversationally. "
 				"You are knowledgeable about many topics and can have natural conversations. "
 				"Be concise but thorough in your answers."

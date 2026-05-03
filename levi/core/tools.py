@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 from core.media import MediaController
+from tools.vision_tools import get_vision_langchain_tools
 from utils.config import PROJECT_ROOT
 from utils.logger import logger
 
@@ -710,6 +711,7 @@ def get_action_toolkit() -> LeviActionToolkit:
 def get_langchain_tools() -> List[Callable[..., str]]:
 	"""Build LangChain tools around the LEVI action toolkit."""
 	toolkit = get_action_toolkit()
+	vision_tools = get_vision_langchain_tools()
 	return [
 		toolkit.open_chrome,
 		toolkit.open_youtube,
@@ -739,4 +741,4 @@ def get_langchain_tools() -> List[Callable[..., str]]:
 		toolkit.fullscreen_media,
 		toolkit.media_status,
 		toolkit.shutdown_pc,
-	]
+	] + vision_tools
