@@ -21,7 +21,7 @@ AUDIO_CONFIG = {
 
 # ==================== SPEECH RECOGNITION (faster-whisper) ====================
 STT_CONFIG = {
-    "model_size": "small",         # tiny, base, small, medium, large (upgraded for accuracy)
+    "model_size": "medium",         # tiny, base, small, medium, large (upgraded for accuracy)
     "device": "cpu",               # 'cpu' for CPU realtime; set to 'cuda' for GPU
     "language": "en",              # Language code
     "temperature": 0.0,             # 0 = deterministic
