@@ -4,13 +4,15 @@ Wraps existing browser/system actions as LangChain-compatible tools.
 """
 
 import os
+import shutil
 import subprocess
 import webbrowser
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from core.media import MediaController
+from utils.config import PROJECT_ROOT
 from utils.logger import logger
 
 try:
@@ -30,6 +32,7 @@ except ImportError:
 class ToolState:
 	"""Runtime state for action tools."""
 	pending_shutdown: bool = False
+	pending_confirmation: Dict[str, str] = field(default_factory=dict)
 	last_action: str = ""
 	metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -136,6 +139,409 @@ class LeviActionToolkit:
 		self.state.last_action = "web_search"
 		self.state.metadata = {"query": query}
 		return self.open_chrome(url)
+
+	def _is_safe_path(self, target_path: str) -> Optional[Path]:
+		"""Return sanitized safe path if under allowed folders."""
+		try:
+			path = Path(target_path).expanduser().resolve()
+		except Exception:
+			return None
+
+		allowed_roots = [Path.home().resolve(), PROJECT_ROOT.resolve()]
+		for root in allowed_roots:
+			if root in path.parents or path == root:
+				return path
+		return None
+
+	def open_folder(self, tool_input: str = "") -> str:
+		"""Open a folder in Windows Explorer."""
+		path = tool_input.strip()
+		if not path:
+			return "Please specify a folder path to open."
+
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only open folders within your home or project directories."
+
+		try:
+			subprocess.Popen(["explorer", str(safe_path)])
+			self.state.last_action = "open_folder"
+			self.state.metadata = {"folder": str(safe_path)}
+			return f"Opened folder: {safe_path}"
+		except Exception as e:
+			self.logger.error(f"Failed to open folder: {e}")
+			return f"Failed to open folder: {e}"
+
+	def _find_start_menu_shortcut(self, app_name: str) -> Optional[str]:
+		"""Look for a Start Menu shortcut matching the friendly app name."""
+		roots = [
+			Path(os.environ.get("APPDATA", "")) / "Microsoft/Windows/Start Menu/Programs",
+			Path(os.environ.get("PROGRAMDATA", "")) / "Microsoft/Windows/Start Menu/Programs",
+		]
+		lower_name = app_name.lower().replace(" ", "")
+
+		for root in roots:
+			if not root.exists():
+				continue
+			for shortcut in root.rglob("*.lnk"):
+				name = shortcut.stem.lower().replace(" ", "")
+				if lower_name == name or lower_name in name or name in lower_name:
+					return str(shortcut)
+		return None
+
+	def _resolve_application(self, app_input: str) -> Optional[str]:
+		"""Resolve friendly app names, install paths, or executable names."""
+		app_name = app_input.strip().strip('"').lower()
+		if not app_name:
+			return None
+
+		app_map = {
+			"notepad": [r"C:\Windows\System32\notepad.exe"],
+			"calculator": [r"C:\Windows\System32\calc.exe"],
+			"calc": [r"C:\Windows\System32\calc.exe"],
+			"wordpad": [r"C:\Program Files\Windows NT\Accessories\wordpad.exe"],
+			"paint": [r"C:\Windows\System32\mspaint.exe"],
+			"powershell": [r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"],
+			"cmd": [r"C:\Windows\System32\cmd.exe"],
+			"chrome": [
+				Path(os.environ.get("PROGRAMFILES", "")) / "Google/Chrome/Application/chrome.exe",
+				Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Google/Chrome/Application/chrome.exe",
+				Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
+			],
+			"chrome browser": [
+				Path(os.environ.get("PROGRAMFILES", "")) / "Google/Chrome/Application/chrome.exe",
+				Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Google/Chrome/Application/chrome.exe",
+				Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
+			],
+			"firefox": [r"C:\Program Files\Mozilla Firefox\firefox.exe"],
+			"edge": [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
+			"chatgpt": [Path(os.environ.get("LOCALAPPDATA", "")) / "Programs/ChatGPT/ChatGPT.exe"],
+			"whatsapp": [Path(os.environ.get("LOCALAPPDATA", "")) / "WhatsApp/WhatsApp.exe"],
+			"adobe premiere pro": [
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2025/Adobe Premiere Pro.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2024/Adobe Premiere Pro.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2023/Adobe Premiere Pro.exe",
+			],
+			"premiere pro": [
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2025/Adobe Premiere Pro.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2024/Adobe Premiere Pro.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2023/Adobe Premiere Pro.exe",
+			],
+			"premiere": [
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2025/Adobe Premiere Pro.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2024/Adobe Premiere Pro.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Adobe/Adobe Premiere Pro 2023/Adobe Premiere Pro.exe",
+			],
+			"visual studio code": [
+				Path(os.environ.get("LOCALAPPDATA", "")) / "Programs/Microsoft VS Code/Code.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft VS Code/Code.exe",
+			],
+			"vs code": [
+				Path(os.environ.get("LOCALAPPDATA", "")) / "Programs/Microsoft VS Code/Code.exe",
+				Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft VS Code/Code.exe",
+			],
+			"teams": [Path(os.environ.get("LOCALAPPDATA", "")) / "Microsoft/Teams/current/Teams.exe"],
+			"slack": [Path(os.environ.get("LOCALAPPDATA", "")) / "slack" / "slack.exe"],
+			"discord": [Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Discord" / "Discord.exe"],
+		}
+
+		def resolve_candidate(candidate: Any) -> Optional[str]:
+			if not candidate:
+				return None
+			candidate_path = Path(candidate)
+			if candidate_path.exists():
+				return str(candidate_path)
+			return None
+
+		if app_name in app_map:
+			entry = app_map[app_name]
+			if isinstance(entry, (list, tuple)):
+				for candidate in entry:
+					resolved = resolve_candidate(candidate)
+					if resolved:
+						return resolved
+			else:
+				resolved = resolve_candidate(entry)
+				if resolved:
+					return resolved
+
+		candidate = Path(app_input.strip().strip('"'))
+		if candidate.exists():
+			return str(candidate)
+
+		found = shutil.which(app_name)
+		if found:
+			return found
+
+		shortcut = self._find_start_menu_shortcut(app_name)
+		if shortcut:
+			return shortcut
+
+		return None
+
+	def open_application(self, tool_input: str = "") -> str:
+		"""Open a Windows application by friendly name or executable path."""
+		app_input = tool_input.strip()
+		if not app_input:
+			return "Please provide the name or path to the application to open."
+
+		resolved_path = self._resolve_application(app_input)
+		if resolved_path is None:
+			return f"Unknown application or path: {app_input}. Try a full path or a common app name like notepad or calculator."
+
+		try:
+			if os.name == "nt":
+				os.startfile(resolved_path)
+			else:
+				subprocess.Popen([resolved_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+			self.state.last_action = "open_application"
+			self.state.metadata = {"application": resolved_path}
+			return f"Opened application: {resolved_path}"
+		except Exception as e:
+			self.logger.error(f"Failed to open application: {e}")
+			return f"Failed to open application: {e}"
+
+	def open_file(self, tool_input: str = "") -> str:
+		"""Open a file with its default application."""
+		path = tool_input.strip()
+		if not path:
+			return "Please specify a file path to open."
+
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only open files within your home or project directories."
+
+		try:
+			os.startfile(str(safe_path))
+			self.state.last_action = "open_file"
+			self.state.metadata = {"file": str(safe_path)}
+			return f"Opened file: {safe_path}"
+		except Exception as e:
+			self.logger.error(f"Failed to open file: {e}")
+			return f"Failed to open file: {e}"
+
+	def list_files(self, tool_input: str = "") -> str:
+		"""List files in a folder."""
+		path = tool_input.strip() or str(Path.home())
+		if not path:
+			return "Please specify a folder path to list."
+
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only list files in your home or project directories."
+
+		if not safe_path.exists() or not safe_path.is_dir():
+			return f"Path is not a valid folder: {safe_path}"
+
+		entries = [p.name for p in safe_path.iterdir()]
+		self.state.last_action = "list_files"
+		self.state.metadata = {"folder": str(safe_path), "entries": len(entries)}
+		return "\n".join(entries) if entries else f"No files found in {safe_path}."
+
+	def read_file(self, tool_input: str = "") -> str:
+		"""Read the contents of a text file."""
+		path = tool_input.strip()
+		if not path:
+			return "Please specify a file path to read."
+
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only read files within your home or project directories."
+
+		if not safe_path.exists() or not safe_path.is_file():
+			return f"File not found: {safe_path}"
+
+		try:
+			with safe_path.open("r", encoding="utf-8", errors="replace") as f:
+				content = f.read(4096)
+			self.state.last_action = "read_file"
+			self.state.metadata = {"file": str(safe_path), "bytes_read": len(content)}
+			return content or f"File is empty: {safe_path}"
+		except Exception as e:
+			self.logger.error(f"Failed to read file: {e}")
+			return f"Failed to read file: {e}"
+
+	def create_file(self, tool_input: str = "") -> str:
+		"""Create or overwrite a text file with content.
+
+		Expected format: path | content
+		"""
+		payload = tool_input.split("|", 1)
+		if len(payload) != 2:
+			return "Please use the format: file_path | content"
+
+		path, content = payload[0].strip(), payload[1].strip()
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only create files within your home or project directories."
+
+		try:
+			with safe_path.open("w", encoding="utf-8") as f:
+				f.write(content)
+			self.state.last_action = "create_file"
+			self.state.metadata = {"file": str(safe_path), "content_length": len(content)}
+			return f"Created file: {safe_path}"
+		except Exception as e:
+			self.logger.error(f"Failed to create file: {e}")
+			return f"Failed to create file: {e}"
+
+	def append_to_file(self, tool_input: str = "") -> str:
+		"""Append text to an existing file.
+
+		Expected format: file_path | content
+		"""
+		payload = tool_input.split("|", 1)
+		if len(payload) != 2:
+			return "Please use the format: file_path | content"
+
+		path, content = payload[0].strip(), payload[1].strip()
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only append files within your home or project directories."
+
+		if not safe_path.exists() or not safe_path.is_file():
+			return f"File not found: {safe_path}"
+
+		try:
+			with safe_path.open("a", encoding="utf-8") as f:
+				f.write(content)
+			self.state.last_action = "append_to_file"
+			self.state.metadata = {"file": str(safe_path), "content_length": len(content)}
+			return f"Appended text to {safe_path}"
+		except Exception as e:
+			self.logger.error(f"Failed to append file: {e}")
+			return f"Failed to append file: {e}"
+
+	def move_file(self, tool_input: str = "") -> str:
+		"""Move or rename a file or folder.
+
+		Expected format: source_path | destination_path
+		"""
+		payload = tool_input.split("|", 1)
+		if len(payload) != 2:
+			return "Please use the format: source_path | destination_path"
+
+		source, destination = payload[0].strip(), payload[1].strip()
+		safe_source = self._is_safe_path(source)
+		safe_destination = self._is_safe_path(destination)
+		if safe_source is None or safe_destination is None:
+			return "Access denied: I can only move files/folders within your home or project directories."
+
+		try:
+			shutil.move(str(safe_source), str(safe_destination))
+			self.state.last_action = "move_file"
+			self.state.metadata = {"source": str(safe_source), "destination": str(safe_destination)}
+			return f"Moved {safe_source} to {safe_destination}"
+		except Exception as e:
+			self.logger.error(f"Failed to move: {e}")
+			return f"Failed to move: {e}"
+
+	def copy_file(self, tool_input: str = "") -> str:
+		"""Copy a file from source to destination.
+
+		Expected format: source_path | destination_path
+		"""
+		payload = tool_input.split("|", 1)
+		if len(payload) != 2:
+			return "Please use the format: source_path | destination_path"
+
+		source, destination = payload[0].strip(), payload[1].strip()
+		safe_source = self._is_safe_path(source)
+		safe_destination = self._is_safe_path(destination)
+		if safe_source is None or safe_destination is None:
+			return "Access denied: I can only copy files within your home or project directories."
+
+		try:
+			shutil.copy2(str(safe_source), str(safe_destination))
+			self.state.last_action = "copy_file"
+			self.state.metadata = {"source": str(safe_source), "destination": str(safe_destination)}
+			return f"Copied {safe_source} to {safe_destination}"
+		except Exception as e:
+			self.logger.error(f"Failed to copy: {e}")
+			return f"Failed to copy: {e}"
+
+	def create_folder(self, tool_input: str = "") -> str:
+		"""Create a new folder."""
+		path = tool_input.strip()
+		if not path:
+			return "Please specify a folder path to create."
+
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only create folders within your home or project directories."
+
+		try:
+			safe_path.mkdir(parents=True, exist_ok=True)
+			self.state.last_action = "create_folder"
+			self.state.metadata = {"folder": str(safe_path)}
+			return f"Created folder: {safe_path}"
+		except Exception as e:
+			self.logger.error(f"Failed to create folder: {e}")
+			return f"Failed to create folder: {e}"
+
+	def delete_file(self, tool_input: str = "") -> str:
+		"""Delete a file with confirmation."""
+		path = tool_input.strip()
+		if not path:
+			return "Please specify a file path to delete."
+
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only delete files within your home or project directories."
+
+		if not safe_path.exists() or not safe_path.is_file():
+			return f"File not found: {safe_path}"
+
+		pending_path = self.state.pending_confirmation.get("delete_file")
+		if pending_path is None:
+			self.state.pending_confirmation["delete_file"] = str(safe_path)
+			return f"Are you sure you want to delete {safe_path}? Say 'confirm delete file' to proceed or 'cancel' to abort."
+
+		if pending_path == str(safe_path) and any(word in tool_input.lower() for word in ["confirm", "yes"]):
+			try:
+				safe_path.unlink()
+				self.state.pending_confirmation.pop("delete_file", None)
+				self.state.last_action = "delete_file"
+				return f"Deleted file: {safe_path}"
+			except Exception as e:
+				self.logger.error(f"Failed to delete file: {e}")
+				return f"Failed to delete file: {e}"
+
+		return f"Are you sure you want to delete {safe_path}? Say 'confirm delete file' to proceed or 'cancel' to abort."
+
+	def delete_folder(self, tool_input: str = "") -> str:
+		"""Delete a folder with confirmation."""
+		path = tool_input.strip()
+		if not path:
+			return "Please specify a folder path to delete."
+
+		safe_path = self._is_safe_path(path)
+		if safe_path is None:
+			return "Access denied: I can only delete folders within your home or project directories."
+
+		if not safe_path.exists() or not safe_path.is_dir():
+			return f"Folder not found: {safe_path}"
+
+		pending_path = self.state.pending_confirmation.get("delete_folder")
+		if pending_path is None:
+			self.state.pending_confirmation["delete_folder"] = str(safe_path)
+			return f"Are you sure you want to delete the folder {safe_path}? Say 'confirm delete folder' to proceed or 'cancel' to abort."
+
+		if pending_path == str(safe_path) and any(word in tool_input.lower() for word in ["confirm", "yes"]):
+			try:
+				shutil.rmtree(str(safe_path))
+				self.state.pending_confirmation.pop("delete_folder", None)
+				self.state.last_action = "delete_folder"
+				return f"Deleted folder: {safe_path}"
+			except Exception as e:
+				self.logger.error(f"Failed to delete folder: {e}")
+				return f"Failed to delete folder: {e}"
+
+		return f"Are you sure you want to delete the folder {safe_path}? Say 'confirm delete folder' to proceed or 'cancel' to abort."
+	def cancel_pending_action(self, tool_input: str = "") -> str:
+		"""Cancel any pending confirmation action."""
+		self.state.pending_confirmation.clear()
+		return "Cancelled any pending action."
 
 	def _press_key(self, key: str) -> str:
 		"""Press a key via pyautogui if available."""
@@ -308,6 +714,19 @@ def get_langchain_tools() -> List[Callable[..., str]]:
 		toolkit.open_chrome,
 		toolkit.open_youtube,
 		toolkit.web_search,
+		toolkit.open_application,
+		toolkit.open_folder,
+		toolkit.open_file,
+		toolkit.list_files,
+		toolkit.read_file,
+		toolkit.create_file,
+		toolkit.append_to_file,
+		toolkit.move_file,
+		toolkit.copy_file,
+		toolkit.create_folder,
+		toolkit.delete_file,
+		toolkit.delete_folder,
+		toolkit.cancel_pending_action,
 		toolkit.play_media,
 		toolkit.pause_media,
 		toolkit.resume_media,

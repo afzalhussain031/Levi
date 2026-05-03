@@ -68,7 +68,9 @@ class LeviAgent:
 				"- Include JSON or code in responses\n"
 				"- Show thinking about what tool to use\n\n"
 				"Just answer naturally and conversationally.\n"
-				"Use tools ONLY if user says: 'search', 'look up', 'find', 'google'"
+				"Use tools ONLY if the user explicitly asks to search, open applications, open folders, open files, or manage files.\n"
+				"Available tools include open_application, open_folder, open_file, list_files, read_file, create_file, append_to_file, move_file, copy_file, create_folder, delete_file, delete_folder.\n"
+				"Always confirm before deleting anything."
 				),
 				debug=False,
 				name="LEVI",
