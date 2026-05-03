@@ -70,7 +70,16 @@ class LeviActionToolkit:
 			return f"Failed to open browser: {e}"
 
 	def open_youtube(self, tool_input: str = "") -> str:
-		"""Open YouTube or search for a query and play first matching video."""
+		"""
+		Open YouTube or search for and play a specific video/music.
+		
+		Use when:
+		- User says: "Play [song/video]", "Search YouTube for..."
+		- User wants to listen to or watch something specific
+		
+		Example: "Play jazz music" → Search YouTube, open first result
+		Example: "Search YouTube for how to cook" → Search and open results
+		"""
 		query = tool_input.strip()
 		
 		if not query:
@@ -103,7 +112,20 @@ class LeviActionToolkit:
 		return self.open_chrome(url)
 
 	def web_search(self, tool_input: str = "") -> str:
-		"""Search the web on Google."""
+		"""
+		Search Google for current information ONLY when user explicitly requests it.
+		
+		Use ONLY for:
+		- User says: "search for", "look up", "find information about", "google", "check online"
+		- Current information: weather, news, live data
+		
+		DO NOT use for:
+		- General knowledge questions (I have that knowledge already)
+		- Facts about people, history, places
+		
+		Example usage: User says "Search for Python tutorials" → Use this tool
+		Example non-usage: User says "Tell me about Python" → Answer directly, DON'T use this
+		"""
 		query = tool_input.strip()
 		
 		if not query:

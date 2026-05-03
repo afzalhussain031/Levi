@@ -21,7 +21,7 @@ AUDIO_CONFIG = {
 
 # ==================== SPEECH RECOGNITION (faster-whisper) ====================
 STT_CONFIG = {
-    "model_size": "tiny",          # tiny, base, small, medium, large
+    "model_size": "small",         # tiny, base, small, medium, large (upgraded for accuracy)
     "device": "cpu",               # 'cpu' for CPU realtime; set to 'cuda' for GPU
     "language": "en",              # Language code
     "temperature": 0.0,             # 0 = deterministic
@@ -41,7 +41,7 @@ TTS_CONFIG = {
 LLM_CONFIG = {
     "base_url": "http://localhost:11434",  # Ollama default endpoint (ensure `ollama serve` is running)
     "model": "llama3.1",              # Model name (llama2, llama3, mistral, neural-chat, etc.)
-    "temperature": 0.7,            # 0.0-1.0 (lower = more focused, higher = more creative)
+    "temperature": 0.3,            # Lower temp = more focused, less creative (better for tool avoidance)
     "top_p": 0.9,
     "max_tokens": 500,
     "max_messages": 10,            # Conversation history size for context
@@ -59,6 +59,7 @@ AGENT_CONFIG = {
     "safety_checks": True,          # Validate dangerous commands
     "confirmation_needed": True,    # Ask before risky actions
     "response_timeout": 30,         # Seconds to wait for LLM response
+    "agent_mode": "pure_llm",       # "pure_llm" or "agent_with_tools"
 }
 
 # ==================== SYSTEM CONFIGURATION ====================

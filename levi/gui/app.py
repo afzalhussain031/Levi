@@ -186,6 +186,40 @@ class LEVIMainWindow(QMainWindow):
 
         main_layout.addLayout(button_layout)
 
+        # Mode toggle buttons layout
+        mode_layout = QHBoxLayout()
+        mode_layout.setSpacing(10)
+
+        mode_label = QLabel("Mode:")
+        mode_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        mode_layout.addWidget(mode_label)
+
+        self.pure_llm_button = QPushButton("💬 Pure LLM")
+        self.pure_llm_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.pure_llm_button.clicked.connect(lambda: self.switch_mode("pure_llm"))
+        self.pure_llm_button.setMinimumHeight(40)
+        self.pure_llm_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00cc44;
+                color: #000000;
+            }
+        """)
+        mode_layout.addWidget(self.pure_llm_button)
+
+        self.agent_tools_button = QPushButton("🔧 Agent + Tools")
+        self.agent_tools_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.agent_tools_button.clicked.connect(lambda: self.switch_mode("agent_with_tools"))
+        self.agent_tools_button.setMinimumHeight(40)
+        self.agent_tools_button.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: #ccc;
+            }
+        """)
+        mode_layout.addWidget(self.agent_tools_button)
+
+        main_layout.addLayout(mode_layout)
+
         # Footer
         footer = QLabel("© 2026 LEVI Virtual Assistant")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -319,6 +353,51 @@ class LEVIMainWindow(QMainWindow):
     def _show_error(self, message):
         """Display error message in UI"""
         self.text_display.append(f"<b style='color: #ff4444;'>❌ Error:</b> {message}\n")
+
+    def switch_mode(self, mode: str):
+        """Switch between pure_llm and agent_with_tools modes"""
+        from utils.config import AGENT_CONFIG
+        
+        # Update config
+        AGENT_CONFIG["agent_mode"] = mode
+        
+        # Update button styles
+        if mode == "pure_llm":
+            self.pure_llm_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #00cc44;
+                    color: #000000;
+                    border: 2px solid #00ff41;
+                }
+            """)
+            self.agent_tools_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #555;
+                    color: #ccc;
+                    border: none;
+                }
+            """)
+            mode_display = "💬 Pure LLM (Direct Conversation)"
+        else:
+            self.agent_tools_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #00cc44;
+                    color: #000000;
+                    border: 2px solid #00ff41;
+                }
+            """)
+            self.pure_llm_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #555;
+                    color: #ccc;
+                    border: none;
+                }
+            """)
+            mode_display = "🔧 Agent + Tools (Search, Browser, Media)"
+        
+        # Log mode switch
+        self.logger.info(f"Switched to {mode} mode")
+        self.text_display.append(f"\n[System] Mode switched to: {mode_display}\n")
 
     def closeEvent(self, event):
         """Handle window close event"""
