@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict
 
 from utils.logger import logger
+from core.media import MediaController
 
 try:
 	import yt_dlp
@@ -40,7 +41,19 @@ class ToolRegistry:
 			"open_chrome": self.open_chrome,
 			"open_youtube": self.open_youtube,
 			"shutdown_pc": self.shutdown_pc,
+			"play_media": self.play_media,
+			"pause_media": self.pause_media,
+			"resume_media": self.resume_media,
+			"play_pause_media": self.play_pause_media,
+			"next_track": self.next_track,
+			"previous_track": self.previous_track,
+			"volume_up": self.volume_up,
+			"volume_down": self.volume_down,
+			"mute_media": self.mute_media,
+			"fullscreen_media": self.fullscreen_media,
+			"media_status": self.media_status,
 		}
+		self.media_controller = MediaController()
 		self.dangerous_actions = {"shutdown_pc"}
 
 	def list_actions(self):
@@ -111,6 +124,79 @@ class ToolRegistry:
 		# Fallback: open YouTube search results
 		url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
 		return self.open_chrome(url=url)
+
+	def play_media(self, query: str) -> ToolResult:
+		"""Play media from a search query using MediaController."""
+		if not query:
+			return ToolResult(False, "Please provide a search query.", "play_media")
+
+		url = self.media_controller.search_and_play(query)
+		self.open_chrome(url=url)
+		return ToolResult(
+			True,
+			f"Playing {query}",
+			"play_media",
+			{"query": query, "url": url, "platform": self.media_controller.state.current_platform}
+		)
+
+	def pause_media(self) -> ToolResult:
+		"""Pause current media playback."""
+		message = self.media_controller.pause()
+		success = "Could not" not in message
+		return ToolResult(success, message, "pause_media")
+
+	def resume_media(self) -> ToolResult:
+		"""Resume current media playback."""
+		message = self.media_controller.resume()
+		success = "Could not" not in message
+		return ToolResult(success, message, "resume_media")
+
+	def play_pause_media(self) -> ToolResult:
+		"""Toggle play/pause for current media."""
+		message = self.media_controller.play_pause()
+		success = "Could not" not in message
+		return ToolResult(success, message, "play_pause_media")
+
+	def next_track(self) -> ToolResult:
+		"""Skip to next track."""
+		message = self.media_controller.next_track()
+		success = "Could not" not in message
+		return ToolResult(success, message, "next_track")
+
+	def previous_track(self) -> ToolResult:
+		"""Go to previous track."""
+		message = self.media_controller.previous_track()
+		success = "Could not" not in message
+		return ToolResult(success, message, "previous_track")
+
+	def volume_up(self, steps: int = 1) -> ToolResult:
+		"""Increase volume."""
+		message = self.media_controller.volume_up(steps)
+		success = "Could not" not in message
+		return ToolResult(success, message, "volume_up", {"steps": steps})
+
+	def volume_down(self, steps: int = 1) -> ToolResult:
+		"""Decrease volume."""
+		message = self.media_controller.volume_down(steps)
+		success = "Could not" not in message
+		return ToolResult(success, message, "volume_down", {"steps": steps})
+
+	def mute_media(self) -> ToolResult:
+		"""Mute or unmute media."""
+		message = self.media_controller.mute()
+		success = "Could not" not in message
+		return ToolResult(success, message, "mute_media")
+
+	def fullscreen_media(self) -> ToolResult:
+		"""Toggle fullscreen for media player."""
+		message = self.media_controller.fullscreen()
+		success = "Could not" not in message
+		return ToolResult(success, message, "fullscreen_media")
+
+	def media_status(self) -> ToolResult:
+		"""Get current media status."""
+		message = self.media_controller.get_status()
+		return ToolResult(True, message, "media_status")
 
 	def shutdown_pc(self, confirmed: bool = False) -> ToolResult:
 		"""Shutdown the computer (Windows only), confirmation required."""

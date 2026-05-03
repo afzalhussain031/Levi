@@ -146,8 +146,102 @@ class LeviBrain:
             return IntentDecision(
                 kind="action",
                 action="open_youtube",
-                arguments={"query": query} if query else {},
+                arguments={"tool_input": query} if query else {},
                 response="Opening YouTube.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["play", "start playing"]):
+            query = None
+            match = re.search(r"play\s+(.+?)(?:\s+on\s+|$)", text)
+            if match:
+                query = match.group(1).strip()
+            if query:
+                return IntentDecision(
+                    kind="action",
+                    action="play_media",
+                    arguments={"tool_input": query},
+                    response=f"Playing {query}.",
+                    source="rule",
+                )
+
+        if any(phrase in text for phrase in ["pause", "pause media", "pause the music", "stop playing"]):
+            return IntentDecision(
+                kind="action",
+                action="pause_media",
+                response="Pausing media.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["resume", "unpause", "continue", "play again"]):
+            return IntentDecision(
+                kind="action",
+                action="resume_media",
+                response="Resuming media.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["play pause", "toggle play", "spacebar"]):
+            return IntentDecision(
+                kind="action",
+                action="play_pause_media",
+                response="Toggling play/pause.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["next track", "skip", "next song", "next video"]):
+            return IntentDecision(
+                kind="action",
+                action="next_track",
+                response="Skipping to next track.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["previous track", "last song", "previous song", "back"]):
+            return IntentDecision(
+                kind="action",
+                action="previous_track",
+                response="Going to previous track.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["volume up", "louder", "increase volume"]):
+            return IntentDecision(
+                kind="action",
+                action="volume_up",
+                response="Increasing volume.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["volume down", "quieter", "lower volume", "decrease volume"]):
+            return IntentDecision(
+                kind="action",
+                action="volume_down",
+                response="Decreasing volume.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["mute", "silence", "quiet"]):
+            return IntentDecision(
+                kind="action",
+                action="mute_media",
+                response="Toggling mute.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["fullscreen", "full screen", "expand"]):
+            return IntentDecision(
+                kind="action",
+                action="fullscreen_media",
+                response="Toggling fullscreen.",
+                source="rule",
+            )
+
+        if any(phrase in text for phrase in ["media status", "what's playing", "what is playing", "what are you playing"]):
+            return IntentDecision(
+                kind="action",
+                action="media_status",
+                response="Getting media status.",
                 source="rule",
             )
 
@@ -257,3 +351,68 @@ class LeviBrain:
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
             return "Sorry, I had trouble generating a response."
+
+
+class IntentRouter:
+    """Classifies inputs into action or general routes before tool-enabled agent execution."""
+
+    ACTION_PREFIXES = (
+        "open",
+        "launch",
+        "start",
+        "play",
+        "pause",
+        "resume",
+        "continue",
+        "stop",
+        "next",
+        "previous",
+        "volume",
+        "mute",
+        "unmute",
+        "fullscreen",
+        "search",
+        "find",
+        "shutdown",
+        "shut down",
+        "turn off",
+    )
+
+    GENERAL_PREFIXES = (
+        "what",
+        "who",
+        "when",
+        "where",
+        "why",
+        "how",
+        "explain",
+        "tell me",
+        "describe",
+        "define",
+    )
+
+    def __init__(self, brain: LeviBrain):
+        self.brain = brain
+
+    def _normalize(self, text: str) -> str:
+        return re.sub(r"\s+", " ", text.strip().lower())
+
+    def classify(self, user_input: str) -> str:
+        """Return either 'action' or 'general'. Defaults to 'general' for safety."""
+        text = self._normalize(user_input)
+        if not text:
+            return "general"
+
+        # Highest-priority route: existing deterministic action rules.
+        rule_decision = self.brain.detect_rule_based_intent(text)
+        if rule_decision and rule_decision.kind == "action":
+            return "action"
+
+        if text.endswith("?") or text.startswith(self.GENERAL_PREFIXES):
+            return "general"
+
+        if text.startswith(self.ACTION_PREFIXES):
+            return "action"
+
+        # Safe default to prevent accidental tool execution.
+        return "general"

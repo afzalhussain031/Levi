@@ -17,6 +17,7 @@ from PyQt6.QtGui import QFont
 from audio.speech import SpeechRecognizer
 from audio.tts import VoiceOutput
 from core.agent import LeviAgent
+from core.brain import IntentRouter, LeviBrain
 from utils.config import SYSTEM_CONFIG
 from utils.logger import logger
 
@@ -49,6 +50,8 @@ class AssistantWorkerThread(threading.Thread):
         self.speech_recognizer = SpeechRecognizer()
         self.voice_output = VoiceOutput()
         self.agent = LeviAgent()
+        self.brain = LeviBrain()
+        self.intent_router = IntentRouter(self.brain)
 
     def run(self):
         """Main assistant loop for GUI"""
@@ -72,8 +75,14 @@ class AssistantWorkerThread(threading.Thread):
                         # Emit recognized text to UI
                         self.emitter.text_received.emit("recognized", text)
 
-                        # Process input through the LangChain agent
-                        response = self.agent.run(text)
+                        # Route: action commands -> tool-enabled agent, general queries -> plain LLM response.
+                        route = self.intent_router.classify(text)
+                        if route == "action":
+                            response = self.agent.run(text)
+                        else:
+                            response = self.brain.generate_response(text)
+                            self.brain.remember_turn(text, response)
+
                         self.emitter.response_generated.emit(response)
 
                         # Speak the final assistant message (non-blocking)
