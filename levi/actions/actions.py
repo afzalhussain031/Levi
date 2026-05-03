@@ -12,6 +12,12 @@ from typing import Any, Callable, Dict
 
 from utils.logger import logger
 
+try:
+	import yt_dlp
+	YT_DLP_AVAILABLE = True
+except ImportError:
+	YT_DLP_AVAILABLE = False
+
 
 @dataclass
 class ToolResult:
@@ -78,11 +84,32 @@ class ToolRegistry:
 			return ToolResult(False, f"Failed to open browser: {e}", "open_chrome")
 
 	def open_youtube(self, query: str | None = None) -> ToolResult:
-		"""Open YouTube, optionally with a search query."""
-		if query:
-			url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
-		else:
+		"""Open YouTube, optionally with a search query. If query provided, plays first matching video."""
+		if not query:
 			url = "https://www.youtube.com"
+			return self.open_chrome(url=url)
+		
+		# If yt-dlp is available, search for the video and open the direct video URL
+		if YT_DLP_AVAILABLE:
+			try:
+				ydl_opts = {
+					"quiet": True,
+					"no_warnings": True,
+					"default_search": "ytsearch",
+					"noplaylist": True,
+				}
+				with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+					result = ydl.extract_info(query, download=False)
+					if result and "entries" in result and len(result["entries"]) > 0:
+						video_id = result["entries"][0]["id"]
+						url = f"https://www.youtube.com/watch?v={video_id}"
+						self.logger.info(f"Found video: {result['entries'][0].get('title', 'Unknown')} - Opening for playback")
+						return self.open_chrome(url=url)
+			except Exception as e:
+				self.logger.warning(f"yt-dlp search failed: {e}. Falling back to search results.")
+		
+		# Fallback: open YouTube search results
+		url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
 		return self.open_chrome(url=url)
 
 	def shutdown_pc(self, confirmed: bool = False) -> ToolResult:
