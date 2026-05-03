@@ -102,6 +102,142 @@ class LeviActionToolkit:
 		url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
 		return self.open_chrome(url)
 
+	def web_search(self, tool_input: str = "") -> str:
+		"""Search the web on Google."""
+		query = tool_input.strip()
+		
+		if not query:
+			url = "https://www.google.com"
+		else:
+			url = f"https://www.google.com/search?q={query.replace(' ', '+')}"
+		
+		self.state.last_action = "web_search"
+		self.state.metadata = {"query": query}
+		return self.open_chrome(url)
+
+	def _press_key(self, key: str) -> str:
+		"""Press a key via pyautogui if available."""
+		if not PYAUTOGUI_AVAILABLE:
+			return "Media controls unavailable: pyautogui is not installed."
+		try:
+			pyautogui.press(key)
+			return "ok"
+		except Exception as e:
+			self.logger.error(f"Failed to press key '{key}': {e}")
+			return "Failed to control media. Make sure player window is focused."
+
+	def play_media(self, tool_input: str = "") -> str:
+		"""Play media or search YouTube for a query."""
+		query = tool_input.strip()
+		if query:
+			self.state.last_action = "play_media"
+			self.state.metadata["is_playing"] = True
+			return self.open_youtube(query)
+		
+		result = self._press_key("space")
+		if result == "ok":
+			self.state.last_action = "play_media"
+			self.state.metadata["is_playing"] = True
+			return "Resumed playback."
+		return result
+
+	def pause_media(self, tool_input: str = "") -> str:
+		"""Pause currently playing media."""
+		result = self._press_key("space")
+		if result == "ok":
+			self.state.last_action = "pause_media"
+			self.state.metadata["is_playing"] = False
+			return "Paused playback."
+		return result
+
+	def resume_media(self, tool_input: str = "") -> str:
+		"""Resume media playback (same as play_media with no query)."""
+		result = self._press_key("space")
+		if result == "ok":
+			self.state.last_action = "resume_media"
+			self.state.metadata["is_playing"] = True
+			return "Resumed playback."
+		return result
+
+	def play_pause_media(self, tool_input: str = "") -> str:
+		"""Toggle play/pause."""
+		result = self._press_key("space")
+		if result == "ok":
+			self.state.last_action = "play_pause_media"
+			return "Toggled play/pause."
+		return result
+
+	def next_track(self, tool_input: str = "") -> str:
+		"""Skip to next track."""
+		result = self._press_key("n")
+		if result == "ok":
+			self.state.last_action = "next_track"
+			return "Skipped to next track."
+		return result
+
+	def previous_track(self, tool_input: str = "") -> str:
+		"""Go to previous track."""
+		result = self._press_key("p")
+		if result == "ok":
+			self.state.last_action = "previous_track"
+			return "Went to previous track."
+		return result
+
+	def volume_up(self, tool_input: str = "") -> str:
+		"""Increase volume."""
+		steps_raw = tool_input.strip() or "1"
+		try:
+			steps = max(1, min(10, int(steps_raw)))
+		except ValueError:
+			steps = 1
+		
+		for _ in range(steps):
+			result = self._press_key("up")
+			if result != "ok":
+				return result
+		
+		self.state.last_action = "volume_up"
+		return f"Volume increased by {steps}."
+
+	def volume_down(self, tool_input: str = "") -> str:
+		"""Decrease volume."""
+		steps_raw = tool_input.strip() or "1"
+		try:
+			steps = max(1, min(10, int(steps_raw)))
+		except ValueError:
+			steps = 1
+		
+		for _ in range(steps):
+			result = self._press_key("down")
+			if result != "ok":
+				return result
+		
+		self.state.last_action = "volume_down"
+		return f"Volume decreased by {steps}."
+
+	def mute_media(self, tool_input: str = "") -> str:
+		"""Mute/unmute media."""
+		result = self._press_key("m")
+		if result == "ok":
+			self.state.last_action = "mute_media"
+			return "Toggled mute."
+		return result
+
+	def fullscreen_media(self, tool_input: str = "") -> str:
+		"""Toggle fullscreen."""
+		result = self._press_key("f")
+		if result == "ok":
+			self.state.last_action = "fullscreen_media"
+			return "Toggled fullscreen."
+		return result
+
+	def media_status(self, tool_input: str = "") -> str:
+		"""Get current media playback status."""
+		status = f"Last action: {self.state.last_action}"
+		if self.state.metadata:
+			status += f" | Metadata: {self.state.metadata}"
+		return status
+
 	def shutdown_pc(self, tool_input: str = "") -> str:
 		"""Shutdown the PC with a two-step confirmation flow."""
 		text = tool_input.strip().lower()
@@ -152,15 +288,6 @@ def get_langchain_tools() -> List[Callable[..., str]]:
 		toolkit.web_search,
 		toolkit.play_media,
 		toolkit.pause_media,
-		toolkit.next_track,
-		toolkit.previous_track,
-		toolkit.fullscreen_media,
-		toolkit.mute_media,
-		toolkit.volume_up,
-		toolkit.volume_down,
-		toolkit.shutdown_pc,
-		toolkit.play_media,
-		toolkit.pause_media,
 		toolkit.resume_media,
 		toolkit.play_pause_media,
 		toolkit.next_track,
@@ -170,4 +297,5 @@ def get_langchain_tools() -> List[Callable[..., str]]:
 		toolkit.mute_media,
 		toolkit.fullscreen_media,
 		toolkit.media_status,
+		toolkit.shutdown_pc,
 	]
