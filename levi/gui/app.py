@@ -17,6 +17,8 @@ from PyQt6.QtGui import QFont
 from audio.speech import SpeechRecognizer
 from audio.tts import VoiceOutput
 from core.agent import LeviAgent
+from core.brain import IntentRouter, LeviBrain
+from core.command_router import DeterministicCommandRouter
 from utils.config import SYSTEM_CONFIG
 from utils.logger import logger
 
@@ -49,6 +51,9 @@ class AssistantWorkerThread(threading.Thread):
         self.speech_recognizer = SpeechRecognizer()
         self.voice_output = VoiceOutput()
         self.agent = LeviAgent()
+        self.brain = LeviBrain()
+        self.intent_router = IntentRouter()
+        self.command_router = DeterministicCommandRouter(self.agent.toolkit)
 
     def run(self):
         """Main assistant loop for GUI"""
@@ -72,8 +77,18 @@ class AssistantWorkerThread(threading.Thread):
                         # Emit recognized text to UI
                         self.emitter.text_received.emit("recognized", text)
 
-                        # Process input through the LangChain agent
-                        response = self.agent.run(text)
+                        # 1) Deterministic known commands (no LLM/tool selection ambiguity).
+                        direct_response = self.command_router.route(text)
+                        if direct_response is not None:
+                            response = direct_response
+                        # 2) General questions: normal LLM response, no tools.
+                        elif self.intent_router.is_general_query(text):
+                            response = self.brain.generate_response(text)
+                            self.brain.remember_turn(text, response)
+                        # 3) Flexible action commands: allow tool-enabled agent.
+                        else:
+                            response = self.agent.run(text)
+
                         self.emitter.response_generated.emit(response)
 
                         # Speak the final assistant message (non-blocking)

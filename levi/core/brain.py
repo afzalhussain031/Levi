@@ -138,6 +138,25 @@ class LeviBrain:
                 source="rule",
             )
 
+        # Google/web search: "search X on google", "google X", "search for X"
+        if any(phrase in text for phrase in ["search", "google"]) and any(phrase in text for phrase in ["on google", "google ", "search for"]):
+            # Try multiple patterns to extract the search query
+            match = re.search(r"google\s+(.+?)(?:\s+on google)?$", text)
+            if not match:
+                match = re.search(r"search\s+for\s+(.+?)(?:\s+on google)?$", text)
+            if not match:
+                match = re.search(r"search\s+(.+?)\s+on google$", text)
+            
+            query = match.group(1).strip() if match else None
+            if query:
+                return IntentDecision(
+                    kind="action",
+                    action="web_search",
+                    arguments={"query": query},
+                    response="Searching Google.",
+                    source="rule",
+                )
+
         if "youtube" in text and any(phrase in text for phrase in ["open", "launch", "start", "play", "go to"]):
             query = None
             match = re.search(r"(?:search|find|play) (.+?) on youtube", text)
@@ -257,3 +276,29 @@ class LeviBrain:
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
             return "Sorry, I had trouble generating a response."
+
+
+class IntentRouter:
+    """Simple high-level classifier for safe GUI routing."""
+
+    GENERAL_PREFIXES = (
+        "what",
+        "who",
+        "when",
+        "where",
+        "why",
+        "how",
+        "explain",
+        "tell me",
+        "describe",
+        "define",
+    )
+
+    def _normalize(self, text: str) -> str:
+        return re.sub(r"\s+", " ", text.strip().lower())
+
+    def is_general_query(self, user_input: str) -> bool:
+        text = self._normalize(user_input)
+        if not text:
+            return True
+        return text.endswith("?") or text.startswith(self.GENERAL_PREFIXES)
