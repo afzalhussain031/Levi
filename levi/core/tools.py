@@ -19,6 +19,12 @@ try:
 except ImportError:
 	YT_DLP_AVAILABLE = False
 
+try:
+	import pyautogui
+	PYAUTOGUI_AVAILABLE = True
+except ImportError:
+	PYAUTOGUI_AVAILABLE = False
+
 
 @dataclass
 class ToolState:
@@ -34,7 +40,6 @@ class LeviActionToolkit:
 	def __init__(self):
 		self.logger = logger
 		self.state = ToolState()
-		self.media_controller = MediaController()
 
 	def open_chrome(self, tool_input: str = "") -> str:
 		"""Open Chrome or the default browser. Accepts an optional URL."""
@@ -97,85 +102,6 @@ class LeviActionToolkit:
 		url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
 		return self.open_chrome(url)
 
-	def play_media(self, tool_input: str = "") -> str:
-		"""Play media from a search query (uses MediaController)."""
-		query = tool_input.strip()
-		if not query:
-			return "Please provide a search query."
-
-		url = self.media_controller.search_and_play(query)
-		self.state.last_action = "play_media"
-		self.state.metadata = {
-			"query": query,
-			"url": url,
-			"platform": self.media_controller.state.current_platform,
-			"title": self.media_controller.state.current_title,
-		}
-		self.logger.info(f"Playing media: {query}")
-		return self.open_chrome(url)
-
-	def pause_media(self, tool_input: str = "") -> str:
-		"""Pause current media playback."""
-		result = self.media_controller.pause()
-		self.state.last_action = "pause_media"
-		return result
-
-	def resume_media(self, tool_input: str = "") -> str:
-		"""Resume current media playback."""
-		result = self.media_controller.resume()
-		self.state.last_action = "resume_media"
-		return result
-
-	def play_pause_media(self, tool_input: str = "") -> str:
-		"""Toggle play/pause for current media."""
-		result = self.media_controller.play_pause()
-		self.state.last_action = "play_pause_media"
-		return result
-
-	def next_track(self, tool_input: str = "") -> str:
-		"""Skip to next track."""
-		result = self.media_controller.next_track()
-		self.state.last_action = "next_track"
-		return result
-
-	def previous_track(self, tool_input: str = "") -> str:
-		"""Go to previous track."""
-		result = self.media_controller.previous_track()
-		self.state.last_action = "previous_track"
-		return result
-
-	def volume_up(self, tool_input: str = "") -> str:
-		"""Increase volume."""
-		steps = int(tool_input.strip() or "1")
-		result = self.media_controller.volume_up(steps)
-		self.state.last_action = "volume_up"
-		return result
-
-	def volume_down(self, tool_input: str = "") -> str:
-		"""Decrease volume."""
-		steps = int(tool_input.strip() or "1")
-		result = self.media_controller.volume_down(steps)
-		self.state.last_action = "volume_down"
-		return result
-
-	def mute_media(self, tool_input: str = "") -> str:
-		"""Mute or unmute media."""
-		result = self.media_controller.mute()
-		self.state.last_action = "mute_media"
-		return result
-
-	def fullscreen_media(self, tool_input: str = "") -> str:
-		"""Toggle fullscreen for media player."""
-		result = self.media_controller.fullscreen()
-		self.state.last_action = "fullscreen_media"
-		return result
-
-	def media_status(self, tool_input: str = "") -> str:
-		"""Get current media status."""
-		result = self.media_controller.get_status()
-		self.state.last_action = "media_status"
-		return result
-
 	def shutdown_pc(self, tool_input: str = "") -> str:
 		"""Shutdown the PC with a two-step confirmation flow."""
 		text = tool_input.strip().lower()
@@ -223,6 +149,15 @@ def get_langchain_tools() -> List[Callable[..., str]]:
 	return [
 		toolkit.open_chrome,
 		toolkit.open_youtube,
+		toolkit.web_search,
+		toolkit.play_media,
+		toolkit.pause_media,
+		toolkit.next_track,
+		toolkit.previous_track,
+		toolkit.fullscreen_media,
+		toolkit.mute_media,
+		toolkit.volume_up,
+		toolkit.volume_down,
 		toolkit.shutdown_pc,
 		toolkit.play_media,
 		toolkit.pause_media,

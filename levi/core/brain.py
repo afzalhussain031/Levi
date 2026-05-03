@@ -138,6 +138,25 @@ class LeviBrain:
                 source="rule",
             )
 
+        # Google/web search: "search X on google", "google X", "search for X"
+        if any(phrase in text for phrase in ["search", "google"]) and any(phrase in text for phrase in ["on google", "google ", "search for"]):
+            # Try multiple patterns to extract the search query
+            match = re.search(r"google\s+(.+?)(?:\s+on google)?$", text)
+            if not match:
+                match = re.search(r"search\s+for\s+(.+?)(?:\s+on google)?$", text)
+            if not match:
+                match = re.search(r"search\s+(.+?)\s+on google$", text)
+            
+            query = match.group(1).strip() if match else None
+            if query:
+                return IntentDecision(
+                    kind="action",
+                    action="web_search",
+                    arguments={"query": query},
+                    response="Searching Google.",
+                    source="rule",
+                )
+
         if "youtube" in text and any(phrase in text for phrase in ["open", "launch", "start", "play", "go to"]):
             query = None
             match = re.search(r"(?:search|find|play) (.+?) on youtube", text)
@@ -351,68 +370,3 @@ class LeviBrain:
         except Exception as e:
             self.logger.error(f"Error generating response: {e}")
             return "Sorry, I had trouble generating a response."
-
-
-class IntentRouter:
-    """Classifies inputs into action or general routes before tool-enabled agent execution."""
-
-    ACTION_PREFIXES = (
-        "open",
-        "launch",
-        "start",
-        "play",
-        "pause",
-        "resume",
-        "continue",
-        "stop",
-        "next",
-        "previous",
-        "volume",
-        "mute",
-        "unmute",
-        "fullscreen",
-        "search",
-        "find",
-        "shutdown",
-        "shut down",
-        "turn off",
-    )
-
-    GENERAL_PREFIXES = (
-        "what",
-        "who",
-        "when",
-        "where",
-        "why",
-        "how",
-        "explain",
-        "tell me",
-        "describe",
-        "define",
-    )
-
-    def __init__(self, brain: LeviBrain):
-        self.brain = brain
-
-    def _normalize(self, text: str) -> str:
-        return re.sub(r"\s+", " ", text.strip().lower())
-
-    def classify(self, user_input: str) -> str:
-        """Return either 'action' or 'general'. Defaults to 'general' for safety."""
-        text = self._normalize(user_input)
-        if not text:
-            return "general"
-
-        # Highest-priority route: existing deterministic action rules.
-        rule_decision = self.brain.detect_rule_based_intent(text)
-        if rule_decision and rule_decision.kind == "action":
-            return "action"
-
-        if text.endswith("?") or text.startswith(self.GENERAL_PREFIXES):
-            return "general"
-
-        if text.startswith(self.ACTION_PREFIXES):
-            return "action"
-
-        # Safe default to prevent accidental tool execution.
-        return "general"
