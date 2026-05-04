@@ -1,6 +1,6 @@
-# 🤖 LEVI - AI Voice Assistant
+# 🤖 Iris - AI Voice Assistant
 
-**LEVI** is a production-level, modular AI voice assistant that runs locally on Windows. It listens to your voice, understands intent, and executes actions intelligently.
+**Iris** is a production-level, modular AI voice assistant that runs locally on Windows. It listens to your voice, understands intent, and executes actions intelligently.
 
 ---
 

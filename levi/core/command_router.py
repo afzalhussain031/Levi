@@ -6,13 +6,13 @@ Executes known media/system commands without using the LLM agent.
 import re
 from typing import Optional
 
-from core.tools import LeviActionToolkit
+from core.tools import IrisActionToolkit
 
 
 class DeterministicCommandRouter:
 	"""Maps explicit commands directly to toolkit methods."""
 
-	def __init__(self, toolkit: LeviActionToolkit):
+	def __init__(self, toolkit: IrisActionToolkit):
 		self.toolkit = toolkit
 
 	def _normalize(self, text: str) -> str:

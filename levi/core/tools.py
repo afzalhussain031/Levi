@@ -1,5 +1,5 @@
 """
-LEVI LangChain Tools
+Iris LangChain Tools
 Wraps existing browser/system actions as LangChain-compatible tools.
 """
 
@@ -38,7 +38,7 @@ class ToolState:
 	metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-class LeviActionToolkit:
+class IrisActionToolkit:
 	"""Actual executable actions used by LangChain tools."""
 
 	def __init__(self):
@@ -697,19 +697,19 @@ class LeviActionToolkit:
 		return "Shutdown is dangerous. Say 'confirm shutdown' to proceed or 'cancel' to stop."
 
 
-_toolkit: LeviActionToolkit | None = None
+_toolkit: IrisActionToolkit | None = None
 
 
-def get_action_toolkit() -> LeviActionToolkit:
+def get_action_toolkit() -> IrisActionToolkit:
 	"""Get or create the singleton toolkit."""
 	global _toolkit
 	if _toolkit is None:
-		_toolkit = LeviActionToolkit()
+		_toolkit = IrisActionToolkit()
 	return _toolkit
 
 
 def get_langchain_tools() -> List[Callable[..., str]]:
-	"""Build LangChain tools around the LEVI action toolkit."""
+	"""Build LangChain tools around the Iris action toolkit."""
 	toolkit = get_action_toolkit()
 	vision_tools = get_vision_langchain_tools()
 	return [

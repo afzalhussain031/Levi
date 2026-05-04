@@ -1,4 +1,4 @@
-"""LEVI action package exports."""
+"""Iris action package exports."""
 
 from .actions import ToolResult, ToolRegistry, get_tool_registry
 

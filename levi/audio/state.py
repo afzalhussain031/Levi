@@ -1,5 +1,5 @@
 """
-Audio state control for LEVI.
+Audio state control for Iris.
 Provides thread-safe LISTENING / PROCESSING / SPEAKING management.
 """
 

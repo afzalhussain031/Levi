@@ -1,1 +1,1 @@
-"""LEVI GUI module"""
+"""Iris GUI module"""

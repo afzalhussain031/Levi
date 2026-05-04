@@ -1,5 +1,5 @@
 """
-Configuration management for LEVI Assistant
+Configuration management for Iris Assistant
 Centralized settings for all modules
 """
 

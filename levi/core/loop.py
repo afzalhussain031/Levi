@@ -8,7 +8,7 @@ import time
 from audio.speech import SpeechRecognizer
 from audio.state import AudioState, get_audio_state, set_audio_state
 from audio.tts import VoiceOutput
-from core.agent import LeviAgent
+from core.agent import IrisAgent
 from utils.logger import logger
 from utils.config import SYSTEM_CONFIG
 
@@ -29,7 +29,7 @@ class AssistantLoop:
         # Initialize components
         self.speech_recognizer = SpeechRecognizer()
         self.voice_output = VoiceOutput()
-        self.agent = LeviAgent()
+        self.agent = IrisAgent()
 
         # State
         self.running = False

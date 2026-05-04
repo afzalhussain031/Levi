@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-class LeviLogger:
+class IrisLogger:
     """Centralized logging for the LEVI assistant"""
 
     _instance = None
@@ -18,7 +18,7 @@ class LeviLogger:
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(LeviLogger, cls).__new__(cls)
+            cls._instance = super(IrisLogger, cls).__new__(cls)
         return cls._instance
 
     def __init__(self):
@@ -67,4 +67,4 @@ class LeviLogger:
 
 
 # Singleton instance
-logger = LeviLogger().get()
+logger = IrisLogger().get()

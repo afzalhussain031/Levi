@@ -1,5 +1,5 @@
 """
-LEVI Media Controller
+Iris Media Controller
 Manages media playback, searching, and keyboard controls.
 """
 

@@ -1,5 +1,5 @@
 """
-LEVI - AI Voice Assistant
+Iris - AI Voice Assistant
 Entry point for the application
 
 PHASE 1: Speech Input + Voice Output

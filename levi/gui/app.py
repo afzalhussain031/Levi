@@ -1,5 +1,5 @@
 """
-LEVI GUI Application
+Iris GUI Application
 Modern PyQt6-based interface with real-time transcription and responses
 """
 
@@ -16,7 +16,7 @@ from PyQt6.QtGui import QFont
 
 from audio.speech import SpeechRecognizer
 from audio.tts import VoiceOutput
-from core.agent import LeviAgent
+from core.agent import IrisAgent
 from utils.config import SYSTEM_CONFIG
 from utils.logger import logger
 
@@ -48,7 +48,7 @@ class AssistantWorkerThread(threading.Thread):
         # Create components directly
         self.speech_recognizer = SpeechRecognizer()
         self.voice_output = VoiceOutput()
-        self.agent = LeviAgent()
+        self.agent = IrisAgent()
 
     def run(self):
         """Main assistant loop for GUI"""
@@ -59,7 +59,7 @@ class AssistantWorkerThread(threading.Thread):
             self.speech_recognizer.start_listening()
             
             # Play greeting
-            greeting = "Hello! I'm LEVI, your voice assistant. I'm ready to listen."
+            greeting = "Hello! I'm Iris, your voice assistant. I'm ready to listen."
             if SYSTEM_CONFIG["voice_enabled"]:
                 self.voice_output.speak_async(greeting)
 
@@ -123,8 +123,8 @@ class AssistantWorkerThread(threading.Thread):
             self.logger.error(f"Error during session reset: {e}")
 
 
-class LEVIMainWindow(QMainWindow):
-    """Main LEVI GUI window"""
+class IrisMainWindow(QMainWindow):
+    """Main Iris GUI window"""
 
     def __init__(self):
         super().__init__()
@@ -132,7 +132,7 @@ class LEVIMainWindow(QMainWindow):
         self.signal_emitter = None
         self.worker_thread = None
 
-        self.setWindowTitle("LEVI - Voice Assistant")
+        self.setWindowTitle("Iris - Voice Assistant")
         self.setGeometry(100, 100, 900, 700)
 
         # Create UI
@@ -150,7 +150,7 @@ class LEVIMainWindow(QMainWindow):
         main_layout.setSpacing(15)
 
         # Header
-        header = QLabel("🤖 LEVI Assistant")
+        header = QLabel("🤖 Iris Assistant")
         header_font = QFont()
         header_font.setPointSize(20)
         header_font.setBold(True)
@@ -252,7 +252,7 @@ class LEVIMainWindow(QMainWindow):
         main_layout.addLayout(mode_layout)
 
         # Footer
-        footer = QLabel("© 2026 LEVI Virtual Assistant")
+        footer = QLabel("© 2026 Iris Virtual Assistant")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setFont(QFont("Arial", 9))
         footer.setStyleSheet("color: #888; margin-top: 10px;")
@@ -326,11 +326,11 @@ class LEVIMainWindow(QMainWindow):
             self.reset_button.setEnabled(True)
             self.status_label.setText("🟢 Listening...")
             self.status_label.setStyleSheet("color: #00ff41;")
-            self.text_display.append("[System] LEVI started. Listening for your voice...\n")
+            self.text_display.append("[System] Iris started. Listening for your voice...\n")
 
         except Exception as e:
             self.logger.error(f"Error starting assistant: {e}")
-            self._show_error(f"Failed to start LEVI: {e}")
+            self._show_error(f"Failed to start Iris: {e}")
 
     def stop_assistant(self):
         """Stop the assistant"""
@@ -355,11 +355,11 @@ class LEVIMainWindow(QMainWindow):
             self.reset_button.setEnabled(False)
             self.status_label.setText("🔴 Stopped")
             self.status_label.setStyleSheet("color: #ff4444;")
-            self.text_display.append("[System] LEVI stopped.\n")
+            self.text_display.append("[System] Iris stopped.\n")
 
         except Exception as e:
             self.logger.error(f"Error stopping assistant: {e}")
-            self._show_error(f"Error stopping LEVI: {e}")
+            self._show_error(f"Error stopping Iris: {e}")
 
     def reset_session(self):
         """User clicked reset button - stop everything and start fresh"""
@@ -386,7 +386,7 @@ class LEVIMainWindow(QMainWindow):
 
     def _on_response_generated(self, response):
         """Called when assistant generates a response"""
-        self.text_display.append(f"<b style='color: #ffaa00;'>💬 LEVI:</b> {response}\n")
+        self.text_display.append(f"<b style='color: #ffaa00;'>💬 Iris:</b> {response}\n")
 
     def _on_error(self, error_msg):
         """Called when an error occurs"""
@@ -450,9 +450,9 @@ class LEVIMainWindow(QMainWindow):
 
 
 def launch_gui():
-    """Launch the LEVI GUI application"""
+    """Launch the Iris GUI application"""
     app = QApplication(sys.argv)
-    window = LEVIMainWindow()
+    window = IrisMainWindow()
     window.show()
     sys.exit(app.exec())
 

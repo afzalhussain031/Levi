@@ -1,5 +1,5 @@
 """
-LEVI LangChain Agent
+Iris LangChain Agent
 Uses LangChain's create_agent API with ChatOllama, callable tools, and conversation memory.
 """
 
@@ -23,8 +23,8 @@ class AgentOutcome:
 	message: str
 
 
-class LeviAgent:
-	"""LangChain-powered LEVI agent."""
+class IrisAgent:
+	"""LangChain-powered Iris agent."""
 
 	def __init__(self):
 		self.logger = logger
@@ -55,7 +55,7 @@ class LeviAgent:
 				model=self.llm,
 				tools=self.tools,
 				system_prompt=(
-				"You are LEVI, a concise, helpful local voice assistant with vision capabilities.\n\n"
+				"You are Iris, a concise, helpful local voice assistant with vision capabilities.\n\n"
 				"Be concise. Answer in 1-2 sentences.\n\n"
 				"ABSOLUTE RULE: Answer questions directly. NEVER use web_search for general knowledge.\n\n"
 				"ALWAYS ANSWER DIRECTLY FOR:\n"
@@ -77,18 +77,18 @@ class LeviAgent:
 				"For text extraction like 'What text is visible?' or 'Read the screen', use read_screen_text."
 				),
 				debug=False,
-				name="LEVI",
+				name="Iris",
 			)
 			self.logger.info(f"✓ LangChain agent initialized with model {LLM_CONFIG.get('model', 'llama3.1')}")
 		except Exception as e:
 			self.logger.error(f"Failed to initialize LangChain agent: {e}")
-			self.logger.warning("LEVI will fall back to a simple local response mode.")
+			self.logger.warning("Iris will fall back to a simple local response mode.")
 			self.ai_enabled = False
 			self.agent_executor = None
 
 	def run(self, user_input: str) -> str:
 		"""
-		Run LEVI in the current mode (pure_llm or agent_with_tools).
+		Run Iris in the current mode (pure_llm or agent_with_tools).
 		Routes based on AGENT_CONFIG["agent_mode"].
 		"""
 		if not self.ai_enabled:
@@ -118,7 +118,7 @@ class LeviAgent:
 			
 			# Add system prompt for pure conversation mode
 			messages.append(SystemMessage(content=(
-				"You are LEVI, a helpful voice assistant. "
+				"You are Iris, a helpful voice assistant. "
 				"Be concise. Answer in 1-2 sentences. "
 				"Answer all questions directly and conversationally. "
 				"You are knowledgeable about many topics and can have natural conversations. "

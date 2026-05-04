@@ -1,5 +1,5 @@
 """
-LEVI Action Layer
+Iris Action Layer
 Registry of executable tools for agentic behavior
 """
 

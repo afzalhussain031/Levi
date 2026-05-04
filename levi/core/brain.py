@@ -1,5 +1,5 @@
 """
-LEVI Brain Module
+Iris Brain Module
 Handles conversation memory, rule-based intent detection, and Ollama-based AI decisions.
 """
 
@@ -94,7 +94,7 @@ class OllamaClient:
         return result.get("message", {}).get("content", "").strip()
 
 
-class LeviBrain:
+class IrisBrain:
     """High-level brain that decides between action and response."""
 
     def __init__(self):
@@ -108,7 +108,7 @@ class LeviBrain:
                 self.client = OllamaClient()
             except Exception as e:
                 self.logger.error(f"AI brain unavailable: {e}")
-                self.logger.warning("LEVI will fall back to rule-based responses.")
+                self.logger.warning("Iris will fall back to rule-based responses.")
                 self.ai_enabled = False
 
     def remember_turn(self, user_input: str, assistant_response: str):
@@ -314,7 +314,7 @@ class LeviBrain:
             return IntentDecision(kind="response", response=self.generate_response(user_input), source="fallback")
 
         system_prompt = (
-            "You are LEVI's decision engine. Return ONLY valid JSON. "
+            "You are Iris's decision engine. Return ONLY valid JSON. "
             "Choose either an action or a natural language response. "
             "If the user requests a supported tool, return kind=\"action\" and set action to one of the available actions. "
             "If the action is dangerous, set requires_confirmation=true. "
@@ -355,7 +355,7 @@ class LeviBrain:
             return f"I heard you say: {user_input}"
 
         system_prompt = (
-            "You are LEVI, a helpful voice assistant. "
+            "You are Iris, a helpful voice assistant. "
             "Be concise, friendly, and natural. Keep replies short enough for TTS."
         )
 
