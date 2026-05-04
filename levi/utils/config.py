@@ -67,7 +67,7 @@ AGENT_CONFIG = {
     "safety_checks": True,          # Validate dangerous commands
     "confirmation_needed": True,    # Ask before risky actions
     "response_timeout": 30,         # Seconds to wait for LLM response
-    "agent_mode": "pure_llm",       # "pure_llm" or "agent_with_tools"
+    "agent_mode": "agent_with_tools",       # "pure_llm" or "agent_with_tools"
 }
 
 # ==================== SYSTEM CONFIGURATION ====================

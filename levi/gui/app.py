@@ -40,15 +40,13 @@ class AssistantWorkerThread(threading.Thread):
     Emits signals via SignalEmitter for UI updates
     """
 
-    def __init__(self, signal_emitter):
+    def __init__(self, signal_emitter, agent, voice_output):
         super().__init__(daemon=True)
         self.emitter = signal_emitter
         self._running = True
-        
-        # Create components directly
         self.speech_recognizer = SpeechRecognizer()
-        self.voice_output = VoiceOutput()
-        self.agent = IrisAgent()
+        self.voice_output = voice_output
+        self.agent = agent
 
     def run(self):
         """Main assistant loop for GUI"""
@@ -129,8 +127,11 @@ class IrisMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.logger = logger
-        self.signal_emitter = None
+        self.signal_emitter = SignalEmitter()
         self.worker_thread = None
+        self.agent = IrisAgent()
+        self.voice_output = VoiceOutput()
+        self.input_mode = "voice"
 
         self.setWindowTitle("Iris - Voice Assistant")
         self.setGeometry(100, 100, 900, 700)
@@ -138,6 +139,16 @@ class IrisMainWindow(QMainWindow):
         # Create UI
         self._create_ui()
         self._apply_dark_theme()
+
+        # Connect persistent signals for both voice and chat modes
+        self.signal_emitter.started.connect(self._on_assistant_started)
+        self.signal_emitter.stopped.connect(self._on_assistant_stopped)
+        self.signal_emitter.text_received.connect(self._on_text_received)
+        self.signal_emitter.response_generated.connect(self._on_response_generated)
+        self.signal_emitter.error_occurred.connect(self._on_error)
+
+        # Set initial mode state
+        self.switch_input_mode(self.input_mode)
 
     def _create_ui(self):
         """Create the user interface"""
@@ -251,6 +262,68 @@ class IrisMainWindow(QMainWindow):
 
         main_layout.addLayout(mode_layout)
 
+        # Input mode selection
+        input_mode_layout = QHBoxLayout()
+        input_mode_layout.setSpacing(10)
+
+        input_label = QLabel("Input:")
+        input_label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        input_mode_layout.addWidget(input_label)
+
+        self.voice_mode_button = QPushButton("🎙️ Voice Mode")
+        self.voice_mode_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.voice_mode_button.clicked.connect(lambda: self.switch_input_mode("voice"))
+        self.voice_mode_button.setMinimumHeight(40)
+        self.voice_mode_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00cc44;
+                color: #000000;
+            }
+        """)
+        input_mode_layout.addWidget(self.voice_mode_button)
+
+        self.chat_mode_button = QPushButton("⌨️ Chat Mode")
+        self.chat_mode_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.chat_mode_button.clicked.connect(lambda: self.switch_input_mode("chat"))
+        self.chat_mode_button.setMinimumHeight(40)
+        self.chat_mode_button.setStyleSheet("""
+            QPushButton {
+                background-color: #555;
+                color: #ccc;
+            }
+        """)
+        input_mode_layout.addWidget(self.chat_mode_button)
+
+        main_layout.addLayout(input_mode_layout)
+
+        self.chat_input = QTextEdit()
+        self.chat_input.setPlaceholderText("Type your prompt here...")
+        self.chat_input.setFont(QFont("Courier", 10))
+        self.chat_input.setFixedHeight(120)
+        self.chat_input.setStyleSheet("""
+            QTextEdit {
+                background-color: #111;
+                color: #ffffff;
+                border: 1px solid #666;
+                border-radius: 5px;
+                padding: 10px;
+            }
+        """)
+        self.chat_input.hide()
+        main_layout.addWidget(self.chat_input)
+
+        chat_button_layout = QHBoxLayout()
+        chat_button_layout.setSpacing(10)
+
+        self.send_button = QPushButton("📝 Send")
+        self.send_button.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        self.send_button.clicked.connect(self.send_chat_text)
+        self.send_button.setMinimumHeight(40)
+        self.send_button.hide()
+        chat_button_layout.addWidget(self.send_button)
+
+        main_layout.addLayout(chat_button_layout)
+
         # Footer
         footer = QLabel("© 2026 Iris Virtual Assistant")
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -301,23 +374,17 @@ class IrisMainWindow(QMainWindow):
 
     def start_assistant(self):
         """Start the assistant and monitoring"""
+        if self.input_mode != "voice":
+            self.text_display.append("[System] Switch to Voice Mode to start listening.\n")
+            return
+
         if self.worker_thread is not None:
             self.logger.warning("Assistant already running")
             return
 
         try:
-            # Create signal emitter (QObject with signals)
-            self.signal_emitter = SignalEmitter()
-
-            # Connect signals to UI slots
-            self.signal_emitter.started.connect(self._on_assistant_started)
-            self.signal_emitter.stopped.connect(self._on_assistant_stopped)
-            self.signal_emitter.text_received.connect(self._on_text_received)
-            self.signal_emitter.response_generated.connect(self._on_response_generated)
-            self.signal_emitter.error_occurred.connect(self._on_error)
-
             # Create and start worker thread (manages recognizer + TTS directly)
-            self.worker_thread = AssistantWorkerThread(self.signal_emitter)
+            self.worker_thread = AssistantWorkerThread(self.signal_emitter, self.agent, self.voice_output)
             self.worker_thread.start()
 
             # Update UI
@@ -347,7 +414,6 @@ class IrisMainWindow(QMainWindow):
 
             # Reset state
             self.worker_thread = None
-            self.signal_emitter = None
 
             # Update UI
             self.start_button.setEnabled(True)
@@ -396,6 +462,86 @@ class IrisMainWindow(QMainWindow):
     def _show_error(self, message):
         """Display error message in UI"""
         self.text_display.append(f"<b style='color: #ff4444;'>❌ Error:</b> {message}\n")
+
+    def switch_input_mode(self, mode: str):
+        """Switch between voice and chat input modes"""
+        self.input_mode = mode
+
+        if mode == "chat":
+            # Stop any running voice assistant when switching to chat mode
+            if self.worker_thread is not None:
+                self.stop_assistant()
+
+            self.chat_input.show()
+            self.send_button.show()
+            self.start_button.setEnabled(False)
+            self.stop_button.setEnabled(False)
+            self.reset_button.setEnabled(False)
+            self.status_label.setText("🟡 Chat mode active")
+            self.status_label.setStyleSheet("color: #ffdd00;")
+
+            self.voice_mode_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #555;
+                    color: #ccc;
+                    border: none;
+                }
+            """)
+            self.chat_mode_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #00cc44;
+                    color: #000000;
+                    border: 2px solid #00ff41;
+                }
+            """)
+            self.text_display.append("[System] Input mode switched to: Chat mode. Type your prompt and send.\n")
+        else:
+            self.chat_input.hide()
+            self.send_button.hide()
+            self.start_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
+            self.reset_button.setEnabled(False)
+            self.status_label.setText("🔴 Voice mode ready")
+            self.status_label.setStyleSheet("color: #00ff41;")
+
+            self.voice_mode_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #00cc44;
+                    color: #000000;
+                    border: 2px solid #00ff41;
+                }
+            """)
+            self.chat_mode_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #555;
+                    color: #ccc;
+                    border: none;
+                }
+            """)
+            self.text_display.append("[System] Input mode switched to: Voice mode. Press Start Listening.\n")
+
+    def send_chat_text(self):
+        """Send typed chat text to the agent"""
+        if self.input_mode != "chat":
+            return
+
+        user_text = self.chat_input.toPlainText().strip()
+        if not user_text:
+            return
+
+        self.text_display.append(f"<b style='color: #00ff41;'>⌨️ You:</b> {user_text}")
+        self.chat_input.clear()
+
+        def worker():
+            try:
+                response = self.agent.run(user_text)
+                self.signal_emitter.response_generated.emit(response)
+                if SYSTEM_CONFIG["voice_enabled"]:
+                    self.voice_output.speak_async(response)
+            except Exception as e:
+                self.signal_emitter.error_occurred.emit(str(e))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def switch_mode(self, mode: str):
         """Switch between pure_llm and agent_with_tools modes"""

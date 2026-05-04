@@ -43,7 +43,7 @@ class IrisAgent:
 			self._build_agent()
 
 	def _build_agent(self):
-		"""Initialize the ChatOllama LLM and LangChain agent graph."""
+		"""Initialize the ChatOllama LLM and LangChain AgentExecutor with tool calling."""
 		try:
 			self.llm = ChatOllama(
 				model=LLM_CONFIG.get("model", "llama3.1"),
@@ -51,10 +51,9 @@ class IrisAgent:
 				temperature=LLM_CONFIG.get("temperature", 0.7),
 				max_tokens=LLM_CONFIG.get("max_tokens", 500),
 			)
-			self.agent_executor = create_agent(
-				model=self.llm,
-				tools=self.tools,
-				system_prompt=(
+			
+			# Create the LangChain agent with tools
+			system_prompt = (
 				"You are Iris, a concise, helpful local voice assistant with vision capabilities.\n\n"
 				"Be concise. Answer in 1-2 sentences.\n\n"
 				"ABSOLUTE RULE: Answer questions directly. NEVER use web_search for general knowledge.\n\n"
@@ -70,12 +69,21 @@ class IrisAgent:
 				"- Include JSON or code in responses\n"
 				"- Show thinking about what tool to use\n\n"
 				"Just answer naturally and conversationally.\n"
-				"Use tools ONLY if the user explicitly asks to search, open applications, open folders, open files, manage files, or analyze screen content.\n"
-				"Available tools include open_application, open_folder, open_file, list_files, read_file, create_file, append_to_file, move_file, copy_file, create_folder, delete_file, delete_folder, analyze_screen, read_screen_text.\n"
-				"Always confirm before deleting anything.\n"
-				"For vision requests like 'What's on my screen?' or 'Describe what you see', use analyze_screen.\n"
-				"For text extraction like 'What text is visible?' or 'Read the screen', use read_screen_text."
-				),
+				"When the user asks to open applications, search YouTube, play media, analyze screen, or manage files:\n"
+				"1. ALWAYS use the appropriate tool to perform the action\n"
+				"2. Report back what you did\n"
+				"3. Keep your response conversational\n\n"
+				"Available tools: open_chrome, open_youtube, open_application, open_folder, open_file, "
+				"list_files, read_file, create_file, play_media, pause_media, next_track, volume_up, volume_down, "
+				"analyze_screen, read_screen_text, and more.\n"
+				"For vision requests like 'What's on my screen?', use analyze_screen.\n"
+				"For music/video requests like 'Play Michael Jackson', use open_youtube with the song name."
+			)
+			
+			self.agent_executor = create_agent(
+				model=self.llm,
+				tools=self.tools,
+				system_prompt=system_prompt,
 				debug=False,
 				name="Iris",
 			)
@@ -142,39 +150,49 @@ class IrisAgent:
 
 	def _agent_response(self, user_input: str) -> str:
 		"""
-		Agent with tools mode: LangChain agent with full tool access.
-		Answers with tools when appropriate, direct answers otherwise.
+		Agent with tools mode: LangChain agent graph with full tool access.
+		Executes tools when appropriate, returns natural conversational responses.
 		"""
 		if not self.ai_enabled or self.agent_executor is None:
 			return f"I heard you say: {user_input}"
 
 		try:
 			memory_vars = self.memory.load_memory_variables({})
-			chat_history = memory_vars.get("chat_history", [])
-			messages = []
-			if chat_history:
-				messages.extend(chat_history)
+			chat_history = memory_vars.get("chat_history", []) or []
+			
+			# Build messages list: include chat history + new user input
+			messages = list(chat_history) if chat_history else []
 			messages.append(HumanMessage(content=user_input))
-
-			result = self.agent_executor.invoke({"messages": messages})
+			
+			# Invoke the agent graph with messages
+			# create_agent returns a CompiledStateGraph that expects {"messages": [...]}
+			result = self.agent_executor.invoke({
+				"messages": messages,
+			})
+			
+			# Extract the final response from the graph output
+			# The graph returns {"messages": [... final message]}
 			assistant_text = ""
-			if isinstance(result, dict):
-				if "messages" in result and result["messages"]:
-					assistant_text = result["messages"][-1].content or ""
-				elif "output" in result:
-					assistant_text = str(result["output"])
-			else:
-				assistant_text = str(result)
-
-			assistant_text = assistant_text.strip() or "Sorry, I had trouble generating a response."
+			if isinstance(result, dict) and "messages" in result:
+				messages_output = result["messages"]
+				if messages_output and len(messages_output) > 0:
+					last_msg = messages_output[-1]
+					if hasattr(last_msg, "content"):
+						assistant_text = last_msg.content.strip()
+					else:
+						assistant_text = str(last_msg).strip()
+			
+			assistant_text = assistant_text or "Sorry, I had trouble generating a response."
 			
 			# Clean up response: remove function calls, JSON, and tool mentions
 			assistant_text = self._clean_response(assistant_text)
 			
+			# Save to memory
 			self.memory.save_context({"input": user_input}, {"output": assistant_text})
 			return assistant_text
 		except Exception as e:
 			self.logger.error(f"Agent mode failed: {e}")
+			self.logger.debug(f"Exception details: {type(e).__name__}: {str(e)}")
 			return "Sorry, I had trouble generating a response."
 	
 	def _clean_response(self, text: str) -> str:
